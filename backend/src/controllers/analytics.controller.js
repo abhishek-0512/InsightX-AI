@@ -1,4 +1,5 @@
 const XLSX = require("xlsx");
+const ExcelJS = require("exceljs");
 const fs = require("fs");
 const path = require("path");
 
@@ -252,7 +253,6 @@ exports.analyzeFile = async (req, res) => {
         reportCache.set(reportId, master);
         lastUploadedRawData = rawData;
 
-        // Pass computed metrics directly into your exact analyze function
         const analysisResult = exports.analyze({
             payment: {
                 overview: {
@@ -330,33 +330,7 @@ exports.analyzeFile = async (req, res) => {
     }
 };
 
-// Helper column width calculation for professional spacing
-function getColWidths(dataArray) {
-    const colWidths = [];
-    dataArray.forEach(row => {
-        row.forEach((cell, colIndex) => {
-            const val = cell !== null && cell !== undefined ? String(cell) : "";
-            colWidths[colIndex] = Math.max(colWidths[colIndex] || 10, val.length + 4);
-        });
-    });
-    return colWidths.map(w => ({ wch: Math.min(Math.max(w, 14), 50) }));
-}
-
-function getJsonColWidths(jsonArray) {
-    if (!jsonArray || jsonArray.length === 0) return [];
-    const keys = Object.keys(jsonArray[0]);
-    return keys.map(key => {
-        let maxLen = key.length;
-        jsonArray.forEach(row => {
-            const val = row[key];
-            if (val !== null && val !== undefined) {
-                maxLen = Math.max(maxLen, String(val).length);
-            }
-        });
-        return { wch: Math.min(Math.max(maxLen + 5, 14), 50) };
-    });
-}
-
+// Professional Colorful Excel Export using ExcelJS
 exports.exportReport = async (req, res) => {
     try {
         const reportId = req.body?.reportId || req.query?.reportId;
@@ -389,74 +363,115 @@ exports.exportReport = async (req, res) => {
             });
         }
 
-        const workbook = XLSX.utils.book_new();
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = "InsightX AI";
+        workbook.created = new Date();
 
-        // 1. Executive_Dashboard Sheet
-        const execRows = [
-            ["Comprehensive Transaction Dashboard", "", "", "", "", "", "", "", "", "", "", ""],
-            ["", "", "", "", "", "", "", "", "", "", "", ""],
-            ["Total Transactions", "", "Total Volume (₹)", "", "Successful Volume (₹)", "", "Failed Volume (₹)", "", "Refunded Volume (₹)", "", "", ""],
-            [master.summary.totalTransactions, "", master.summary.totalVolume, "", master.summary.successVolume, "", master.summary.failedVolume, "", master.summary.refundVolume, "", "", ""],
-            ["", "", "", "", "", "", "", "", "", "", "", ""],
-            ["", "", "", "", "", "", "", "", "", "", "", ""],
-            ["", "", "", "", "", "", "", "Device / Platform Performance Summary", "", "", "", ""],
-            ["", "", "", "", "", "", "", "", "", "", "", ""],
-            ["", "", "", "", "", "", "", "device_category", "Total_Transactions", "Total_Volume", "Success_Volume", "Failed_Volume"]
+        const headerBgColor = "1E293B"; // Dark Slate
+        const subHeaderBgColor = "0284C7"; // Cyan Accent
+        const whiteFont = "FFFFFF";
+
+        // 1. Executive Dashboard Sheet
+        const execSheet = workbook.addWorksheet("Executive_Dashboard", { views: [{ showGridLines: true }] });
+        
+        execSheet.mergeCells("A1:E1");
+        const titleCell = execSheet.getCell("A1");
+        titleCell.value = " 📊 INSIGHTX AI - EXECUTIVE MASTER ANALYTICS REPORT ";
+        titleCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: whiteFont } };
+        titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: headerBgColor } };
+        titleCell.alignment = { vertical: "middle", horizontal: "left" };
+        execSheet.getRow(1).height = 35;
+
+        execSheet.getCell("A2").value = `Generated At: ${new Date().toLocaleString()}`;
+        execSheet.getCell("A2").font = { name: "Segoe UI", size: 10, italic: true, color: { argb: "64748B" } };
+
+        const kpiRows = [
+            ["", ""],
+            ["OVERALL TRANSACTION SUMMARY", "VALUE"],
+            ["Total Transactions", master.summary.totalTransactions],
+            ["Successful Transactions", master.summary.successfulCount],
+            ["Failed Transactions", master.summary.failedCount],
+            ["Refunded Transactions", master.summary.refundCount],
+            ["", ""],
+            ["FINANCIAL & REVENUE METRICS (₹)", "AMOUNT (₹)"],
+            ["Total Gross Volume", master.summary.totalVolume],
+            ["Successful Volume", master.summary.successVolume],
+            ["Failed Volume", master.summary.failedVolume],
+            ["Total Refund Amount", master.summary.refundVolume],
+            ["Net Revenue", master.summary.netRevenue],
+            ["", ""],
+            ["PERFORMANCE KPIS", "RATE (%)"],
+            ["Success Rate", `${master.summary.successRate}%`],
+            ["Refund Rate", `${master.summary.refundRate}%`],
+            ["", ""]
         ];
-        master.deviceSummary.forEach(row => {
-            execRows.push([
-                "", "", "", "", "", "", "",
-                row.device_category,
-                row.Total_Transactions,
-                row.Total_Volume,
-                row.Success_Volume,
-                row.Failed_Volume
-            ]);
+
+        kpiRows.forEach(row => {
+            const r = execSheet.addRow(row);
+            if (row[1] === "VALUE" || row[1] === "AMOUNT (₹)" || row[1] === "RATE (%)") {
+                r.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: whiteFont } };
+                r.fill = { type: "pattern", pattern: "solid", fgColor: { argb: subHeaderBgColor } };
+            } else {
+                r.font = { name: "Segoe UI", size: 10 };
+            }
         });
-        const execWS = XLSX.utils.aoa_to_sheet(execRows);
-        execWS['!cols'] = getColWidths(execRows);
-        XLSX.utils.book_append_sheet(workbook, execWS, "Executive_Dashboard");
 
-        // 2. DB_Master_Data Sheet
-        const masterWS = XLSX.utils.json_to_sheet(master.processedData);
-        masterWS['!cols'] = getJsonColWidths(master.processedData);
-        XLSX.utils.book_append_sheet(workbook, masterWS, "DB_Master_Data");
+        execSheet.addRow([""]);
+        const devHeaderRow = execSheet.addRow(["DEVICE CATEGORY", "TOTAL TRANSACTIONS", "TOTAL VOLUME (₹)", "SUCCESS VOLUME (₹)", "FAILED VOLUME (₹)"]);
+        devHeaderRow.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: whiteFont } };
+        devHeaderRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: headerBgColor } };
+        devHeaderRow.alignment = { vertical: "middle", horizontal: "center" };
+        devHeaderRow.height = 25;
 
-        // 3. Device_Deep_Dive Sheet
-        const deviceWS = XLSX.utils.json_to_sheet(master.deviceSummary);
-        deviceWS['!cols'] = getJsonColWidths(master.deviceSummary);
-        XLSX.utils.book_append_sheet(workbook, deviceWS, "Device_Deep_Dive");
+        master.deviceSummary.forEach(d => {
+            const row = execSheet.addRow([d.device_category, d.Total_Transactions, d.Total_Volume, d.Success_Volume, d.Failed_Volume]);
+            row.font = { name: "Segoe UI", size: 10 };
+        });
 
-        // 4. Monthly_Analysis Sheet
-        const monthlyWS = XLSX.utils.json_to_sheet(master.monthlySummary);
-        monthlyWS['!cols'] = getJsonColWidths(master.monthlySummary);
-        XLSX.utils.book_append_sheet(workbook, monthlyWS, "Monthly_Analysis");
+        execSheet.columns.forEach(col => { col.width = 30; });
 
-        // 5. Location_Analysis Sheet
-        const locationWS = XLSX.utils.json_to_sheet(master.locationSummary);
-        locationWS['!cols'] = getJsonColWidths(master.locationSummary);
-        XLSX.utils.book_append_sheet(workbook, locationWS, "Location_Analysis");
+        // Helper for standard sheets
+        function addStyledSheet(sheetName, dataArray) {
+            if (!dataArray || dataArray.length === 0) return;
+            const sheet = workbook.addWorksheet(sheetName, { views: [{ showGridLines: true }] });
+            
+            const keys = Object.keys(dataArray[0]);
+            sheet.addRow(keys);
+            
+            const headerRow = sheet.getRow(1);
+            headerRow.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: whiteFont } };
+            headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: headerBgColor } };
+            headerRow.alignment = { vertical: "middle", horizontal: "center" };
+            headerRow.height = 25;
 
-        // 6. Refund_Details Sheet
-        const refundWS = XLSX.utils.json_to_sheet(master.refundRecords);
-        refundWS['!cols'] = getJsonColWidths(master.refundRecords);
-        XLSX.utils.book_append_sheet(workbook, refundWS, "Refund_Details");
+            dataArray.forEach(item => {
+                const values = keys.map(k => item[k]);
+                sheet.addRow(values);
+            });
 
-        // 7. Failed_Details Sheet
-        const failedWS = XLSX.utils.json_to_sheet(master.failedRecords);
-        failedWS['!cols'] = getJsonColWidths(master.failedRecords);
-        XLSX.utils.book_append_sheet(workbook, failedWS, "Failed_Details");
+            sheet.columns.forEach(col => {
+                let maxLength = 15;
+                col.eachCell({ includeEmpty: true }, cell => {
+                    const val = cell.value ? String(cell.value) : "";
+                    if (val.length > maxLength) maxLength = val.length;
+                });
+                col.width = Math.min(Math.max(maxLength + 4, 15), 45);
+            });
+        }
 
-        // 8. Data_Device Sheet
-        const dataDeviceWS = XLSX.utils.json_to_sheet(master.deviceSummary);
-        dataDeviceWS['!cols'] = getJsonColWidths(master.deviceSummary);
-        XLSX.utils.book_append_sheet(workbook, dataDeviceWS, "Data_Device");
+        addStyledSheet("DB_Master_Data", master.processedData);
+        addStyledSheet("Device_Deep_Dive", master.deviceSummary);
+        addStyledSheet("Monthly_Analysis", master.monthlySummary);
+        addStyledSheet("Location_Analysis", master.locationSummary);
+        addStyledSheet("Refund_Details", master.refundRecords);
+        addStyledSheet("Failed_Details", master.failedRecords);
+        addStyledSheet("Data_Device", master.deviceSummary);
 
-        const excelBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-
-        res.setHeader("Content-Disposition", "attachment; filename=Final_Transaction_Report_V4_Devices.xlsx");
+        res.setHeader("Content-Disposition", "attachment; filename=InsightX_Executive_Master_Report.xlsx");
         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        res.send(excelBuffer);
+        
+        await workbook.xlsx.write(res);
+        res.end();
 
     } catch (err) {
         console.error("Export Error:", err);
