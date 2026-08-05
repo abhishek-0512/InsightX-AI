@@ -1,12 +1,14 @@
 import React from "react";
 import { useAnalysis } from "../context/AnalysisContext";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://insightx-ai.onrender.com";
+
 export default function DownloadButton() {
     const { result } = useAnalysis();
     if (!result) return null;
 
     const handleDownload = () => {
-        window.open("http://localhost:5001/api/analytics/export", "_blank");
+        window.open(`${API_BASE_URL}/api/analytics/export`, "_blank");
     };
 
     return (
