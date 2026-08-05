@@ -4,6 +4,8 @@ import toast from "react-hot-toast";
 
 const AnalysisContext = createContext();
 
+const API_BASE_URL = "https://insightx-ai.onrender.com";
+
 export const AnalysisProvider = ({ children }) => {
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -14,7 +16,7 @@ export const AnalysisProvider = ({ children }) => {
             const formData = new FormData();
             formData.append("file", file);
 
-            const res = await axios.post("http://localhost:5001/api/analytics", formData, {
+            const res = await axios.post(`${API_BASE_URL}/api/analytics`, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
 
