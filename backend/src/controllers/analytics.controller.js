@@ -6,7 +6,6 @@ const path = require("path");
 const reportCache = new Map();
 let lastUploadedRawData = null;
 
-// Helper to categorize device platforms
 function categorizeDevice(platform) {
     if (!platform) return "Unknown / Other";
     const p = String(platform).toLowerCase();
@@ -18,7 +17,6 @@ function categorizeDevice(platform) {
     return "Unknown / Other";
 }
 
-// Your exact analyze function
 exports.analyze = ({
     payment = {},
     refund = {},
@@ -27,87 +25,72 @@ exports.analyze = ({
     monthly = {},
     location = {}
 }) => {
-
     return {
-
         overview: {
-            totalTransactions:
-                payment.overview?.totalTransactions || 0,
-
-            successfulTransactions:
-                payment.overview?.successfulTransactions || 0,
-
-            failedTransactions:
-                payment.overview?.failedTransactions || 0,
-
-            refundedTransactions:
-                payment.overview?.refundedTransactions || 0
+            totalTransactions: payment.overview?.totalTransactions || 0,
+            successfulTransactions: payment.overview?.successfulTransactions || 0,
+            failedTransactions: payment.overview?.failedTransactions || 0,
+            refundedTransactions: payment.overview?.refundedTransactions || 0
         },
-
         revenue: {
-            totalRevenue:
-                payment.revenue?.totalAmount || 0,
-
-            refundAmount:
-                payment.revenue?.refundAmount || 0,
-
-            netRevenue:
-                payment.revenue?.netAmount || 0
+            totalRevenue: payment.revenue?.totalAmount || 0,
+            refundAmount: payment.revenue?.refundAmount || 0,
+            netRevenue: payment.revenue?.netAmount || 0
         },
-
         performance: {
-            successRate:
-                payment.successRate || 0,
-
-            refundRate:
-                payment.refundRate || 0,
-
-            failureCount:
-                failure.totalFailures || 0
+            successRate: payment.successRate || 0,
+            refundRate: payment.refundRate || 0,
+            failureCount: failure.totalFailures || 0
         },
-
-        paymentModes:
-            payment.paymentModes || {},
-
-        topPaymentMode:
-            Object.entries(
-                payment.paymentModes || {}
-            )
-                .sort((a, b) => b[1] - a[1])[0] || null,
-
-        topFailureReason:
-            failure.topReason || null,
-
-        topRefundReason:
-            refund.topReason || null,
-
-        topDevice:
-            device.topDevice || null,
-
-        topLocation:
-            location.topCity ||
-            location.topState ||
-            location.topCountry ||
-            null,
-
-        peakMonth:
-            monthly.peakMonth || null,
-
-        generatedAt:
-            new Date().toISOString()
-
+        paymentModes: payment.paymentModes || {},
+        topPaymentMode: Object.entries(payment.paymentModes || {}).sort((a, b) => b[1] - a[1])[0] || null,
+        topFailureReason: failure.topReason || null,
+        topRefundReason: refund.topReason || null,
+        topDevice: device.topDevice || null,
+        topLocation: location.topCity || location.topState || location.topCountry || null,
+        peakMonth: monthly.peakMonth || null,
+        generatedAt: new Date().toISOString()
     };
-
 };
 
-// Compute comprehensive master analytics
+function getRowValue(row, possibleKeys) {
+    const rowKeys = Object.keys(row);
+    for (const targetKey of possibleKeys) {
+        const foundKey = rowKeys.find(k => k.trim().toLowerCase() === targetKey.toLowerCase());
+        if (foundKey !== undefined && row[foundKey] !== null && row[foundKey] !== undefined && row[foundKey] !== "") {
+            return row[foundKey];
+        }
+    }
+    for (const targetKey of possibleKeys) {
+        const foundKey = rowKeys.find(k => k.trim().toLowerCase().includes(targetKey.toLowerCase()));
+        if (foundKey !== undefined && row[foundKey] !== null && row[foundKey] !== undefined && row[foundKey] !== "") {
+            return row[foundKey];
+        }
+    }
+    return "";
+}
+
+function parseAmount(row) {
+    const rawVal = getRowValue(row, ["amount", "price", "total", "amt", "value", "transaction_amount", "gross_amount", "sum", "revenue"]);
+    if (rawVal === "" || rawVal === null || rawVal === undefined) {
+        for (const k of Object.keys(row)) {
+            const num = Number(String(row[k]).replace(/[^0-9.-]+/g, ""));
+            if (!isNaN(num) && num > 0) return num;
+        }
+        return 0;
+    }
+    const cleanStr = String(rawVal).replace(/[^0-9.-]+/g, "");
+    const num = Number(cleanStr);
+    return isNaN(num) ? 0 : num;
+}
+
 function computeMasterData(rawData) {
     const processedData = rawData.map(r => {
-        const platform = r.platform || r.device_name || "Unknown Device";
+        const platform = getRowValue(r, ["platform", "device_name", "device", "os", "browser", "client"]) || "Unknown Device";
         const device_category = categorizeDevice(platform);
 
         let monthName = "June 2026";
-        const timeField = r.entry_time || r.created_at;
+        const timeField = getRowValue(r, ["entry_time", "created_at", "date", "timestamp", "time", "updated_at", "created"]);
         if (timeField) {
             const parts = String(timeField).split(" ")[0].split("-");
             if (parts.length === 3) {
@@ -120,40 +103,59 @@ function computeMasterData(rawData) {
             }
         }
 
+        const parsed_amount = parseAmount(r);
+
         return {
+            ...r,
             device_category,
             transaction_month: monthName,
-            ...r
+            parsed_amount
         };
     });
 
     const totalTransactions = processedData.length;
-    const grossVolume = processedData.reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+    const grossVolume = processedData.reduce((acc, r) => acc + r.parsed_amount, 0);
 
-    const successfulRecords = processedData.filter(r => 
-        String(r.payment_status || "").toUpperCase() === "SUCCESS" || r.status === 1 || r.status === "1"
-    );
-    const failedRecords = processedData.filter(r => 
-        String(r.payment_status || "").toUpperCase() === "FAILURE" || r.status === 0 || r.status === "0"
-    );
-    const refundRecords = processedData.filter(r => Number(r.is_refund) === 1 || String(r.is_refund).toLowerCase() === "true");
+    const getStatus = (r) => String(getRowValue(r, ["payment_status", "status", "tx_status", "order_status", "state", "result", "paymentstatus"])).trim().toLowerCase();
 
-    const successVolume = successfulRecords.reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
-    const failedVolume = failedRecords.reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
-    const refundVolume = refundRecords.reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+    const successfulRecords = processedData.filter(r => {
+        const s = getStatus(r);
+        return ["success", "successful", "completed", "paid", "approved", "succeeded", "1", "true", "captured", "ok"].includes(s) || s.includes("success") || s.includes("complet");
+    });
+
+    const failedRecords = processedData.filter(r => {
+        const s = getStatus(r);
+        return ["failure", "fail", "failed", "declined", "error", "rejected", "cancelled", "0", "false", "aborted", "dropped", "unpaid"].includes(s) || s.includes("fail") || s.includes("error") || s.includes("declin");
+    });
+
+    const refundRecords = processedData.filter(r => {
+        const s = getStatus(r);
+        const refundFlag = String(getRowValue(r, ["is_refund", "refund", "refund_status", "is_cancelled", "refunded", "is_refunded"])).trim().toLowerCase();
+        const refundNumeric = Number(getRowValue(r, ["is_refund", "refund", "refund_amount"]) || 0);
+        return s === "refunded" || s.includes("refund") || refundNumeric === 1 || refundNumeric > 0 || refundFlag === "1" || refundFlag === "true" || refundFlag === "yes" || refundFlag === "refunded";
+    });
+
+    const successVolume = successfulRecords.reduce((acc, r) => acc + r.parsed_amount, 0);
+    const failedVolume = failedRecords.reduce((acc, r) => acc + r.parsed_amount, 0);
+    const refundVolume = refundRecords.reduce((acc, r) => acc + r.parsed_amount, 0);
     const netRevenue = successVolume - refundVolume;
 
     const successRate = totalTransactions > 0 ? (successfulRecords.length / totalTransactions) * 100 : 0;
     const refundRate = totalTransactions > 0 ? (refundRecords.length / totalTransactions) * 100 : 0;
 
-    // 1. Device Analysis
     const categories = ["iPhone / iOS", "Android", "Unknown / Other", "Windows", "Mac OS", "Linux"];
     const deviceSummary = categories.map(cat => {
         const catRows = processedData.filter(r => r.device_category === cat);
         const tTx = catRows.length;
-        const tVol = catRows.reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
-        const sVol = catRows.filter(r => String(r.payment_status || "").toUpperCase() === "SUCCESS").reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
-        const fVol = catRows.filter(r => String(r.payment_status || "").toUpperCase() === "FAILURE").reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+        const tVol = catRows.reduce((acc, r) => acc + r.parsed_amount, 0);
+        const sVol = catRows.filter(r => {
+            const s = getStatus(r);
+            return s.includes("success") || s === "1" || s.includes("complet");
+        }).reduce((acc, r) => acc + r.parsed_amount, 0);
+        const fVol = catRows.filter(r => {
+            const s = getStatus(r);
+            return s.includes("fail") || s === "0" || s.includes("declin");
+        }).reduce((acc, r) => acc + r.parsed_amount, 0);
         return {
             device_category: cat,
             Total_Transactions: tTx,
@@ -163,7 +165,6 @@ function computeMasterData(rawData) {
         };
     });
 
-    // 2. Monthly Analysis
     const monthlyMap = {};
     processedData.forEach(r => {
         const m = r.transaction_month;
@@ -171,9 +172,10 @@ function computeMasterData(rawData) {
             monthlyMap[m] = { transactions: 0, revenue: 0, successful: 0, failed: 0 };
         }
         monthlyMap[m].transactions += 1;
-        monthlyMap[m].revenue += (Number(r.amount) || 0);
-        if (String(r.payment_status || "").toUpperCase() === "SUCCESS") monthlyMap[m].successful += 1;
-        if (String(r.payment_status || "").toUpperCase() === "FAILURE") monthlyMap[m].failed += 1;
+        monthlyMap[m].revenue += r.parsed_amount;
+        const s = getStatus(r);
+        if (s.includes("success") || s === "1" || s.includes("complet")) monthlyMap[m].successful += 1;
+        if (s.includes("fail") || s === "0" || s.includes("declin")) monthlyMap[m].failed += 1;
     });
 
     const monthlySummary = Object.entries(monthlyMap).map(([month, data]) => ({
@@ -184,15 +186,14 @@ function computeMasterData(rawData) {
         Failed_Count: data.failed
     }));
 
-    // 3. Locationwise Analysis
     const locationMap = {};
     processedData.forEach(r => {
-        const loc = r.location_id || r.location || "Main Location";
+        const loc = getRowValue(r, ["location_id", "location", "city", "region", "country", "state"]) || "Main Location";
         if (!locationMap[loc]) {
             locationMap[loc] = { transactions: 0, revenue: 0 };
         }
         locationMap[loc].transactions += 1;
-        locationMap[loc].revenue += (Number(r.amount) || 0);
+        locationMap[loc].revenue += r.parsed_amount;
     });
 
     const locationSummary = Object.entries(locationMap).map(([loc, data]) => ({
@@ -201,10 +202,9 @@ function computeMasterData(rawData) {
         Total_Revenue: Number(data.revenue.toFixed(3))
     }));
 
-    // 4. Payment Modes Analysis
     const paymentModeMap = {};
     processedData.forEach(r => {
-        const mode = r.pay_mode || r.payment_mode || "paylink";
+        const mode = getRowValue(r, ["pay_mode", "payment_mode", "mode", "payment_method", "method", "gateway"]) || "paylink";
         paymentModeMap[mode] = (paymentModeMap[mode] || 0) + 1;
     });
 
@@ -232,7 +232,6 @@ function computeMasterData(rawData) {
     };
 }
 
-// File upload and processing endpoint
 exports.analyzeFile = async (req, res) => {
     try {
         if (!req.file) {
@@ -330,7 +329,6 @@ exports.analyzeFile = async (req, res) => {
     }
 };
 
-// Professional Colorful Excel Export using ExcelJS
 exports.exportReport = async (req, res) => {
     try {
         const reportId = req.body?.reportId || req.query?.reportId;
@@ -367,11 +365,10 @@ exports.exportReport = async (req, res) => {
         workbook.creator = "InsightX AI";
         workbook.created = new Date();
 
-        const headerBgColor = "1E293B"; // Dark Slate
-        const subHeaderBgColor = "0284C7"; // Cyan Accent
+        const headerBgColor = "1E293B";
+        const subHeaderBgColor = "0284C7";
         const whiteFont = "FFFFFF";
 
-        // 1. Executive Dashboard Sheet
         const execSheet = workbook.addWorksheet("Executive_Dashboard", { views: [{ showGridLines: true }] });
         
         execSheet.mergeCells("A1:E1");
@@ -419,7 +416,7 @@ exports.exportReport = async (req, res) => {
         execSheet.addRow([""]);
         const devHeaderRow = execSheet.addRow(["DEVICE CATEGORY", "TOTAL TRANSACTIONS", "TOTAL VOLUME (₹)", "SUCCESS VOLUME (₹)", "FAILED VOLUME (₹)"]);
         devHeaderRow.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: whiteFont } };
-        devHeaderRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: headerBgColor } };
+        devHeaderRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: subHeaderBgColor } };
         devHeaderRow.alignment = { vertical: "middle", horizontal: "center" };
         devHeaderRow.height = 25;
 
@@ -430,7 +427,6 @@ exports.exportReport = async (req, res) => {
 
         execSheet.columns.forEach(col => { col.width = 30; });
 
-        // Helper for standard sheets
         function addStyledSheet(sheetName, dataArray) {
             if (!dataArray || dataArray.length === 0) return;
             const sheet = workbook.addWorksheet(sheetName, { views: [{ showGridLines: true }] });
