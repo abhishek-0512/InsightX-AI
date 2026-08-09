@@ -9,9 +9,9 @@ function getColumnValue(row, possibleKeys) {
     if (!row) return null;
     const keys = Object.keys(row);
     for (const expected of possibleKeys) {
-        const expectedNorm = expected.toLowerCase().replace(/[\s_-]/g, "");
+        const expectedNorm = String(expected || "").toLowerCase().replace(/[\s_-]/g, "");
         for (const key of keys) {
-            const keyNorm = key.toLowerCase().replace(/[\s_-]/g, "");
+            const keyNorm = String(key || "").toLowerCase().replace(/[\s_-]/g, "");
             if (keyNorm === expectedNorm) {
                 return row[key];
             }
@@ -19,6 +19,75 @@ function getColumnValue(row, possibleKeys) {
     }
     return null;
 }
+
+const amountKeys = [
+    "amount",
+    "transaction_amount",
+    "txn_amount",
+    "txnamount",
+    "payment_amount",
+    "order_amount",
+    "settlement_amount",
+    "amt",
+    "value",
+    "total",
+    "paid_amount",
+    "gross_amount",
+    "price"
+];
+
+const refundKeys = [
+    "is_refund",
+    "refund",
+    "isrefund",
+    "refund_flag",
+    "is_refunded"
+];
+
+const statusKeys = [
+    "payment_status",
+    "transaction_status",
+    "status",
+    "paymentstatus",
+    "txn_status",
+    "state",
+    "order_status"
+];
+
+const modeKeys = [
+    "payment_mode",
+    "pay_mode",
+    "mode",
+    "paymentmethod",
+    "payment_method",
+    "channel",
+    "gateway",
+    "method"
+];
+
+const dateKeys = [
+    "created_at",
+    "entry_time",
+    "date",
+    "transaction_date",
+    "createdat",
+    "payment_date",
+    "timestamp",
+    "txn_date",
+    "order_date",
+    "settlement_date",
+    "datetime"
+];
+
+const platformKeys = [
+    "platform",
+    "device_name",
+    "device",
+    "os",
+    "browser",
+    "source",
+    "client"
+];
 
 export function computeAnalytics(rows = []) {
     const totalTransactions = rows.length;
@@ -37,13 +106,11 @@ export function computeAnalytics(rows = []) {
     const platformMap = {};
 
     rows.forEach((row) => {
-        const amount = Number(
-            getColumnValue(row, ["amount", "transaction_amount", "payment_amount", "value", "total"])
-        ) || 0;
+        const amount = Number(getColumnValue(row, amountKeys)) || 0;
 
-        const isRefundVal = getColumnValue(row, ["is_refund", "refund", "isrefund"]);
-        const orderId = String(getColumnValue(row, ["order_id", "orderid"]) || "").toLowerCase();
-        const action = String(getColumnValue(row, ["transaction_action", "action"]) || "").toLowerCase();
+        const isRefundVal = getColumnValue(row, refundKeys);
+        const orderId = String(getColumnValue(row, ["order_id", "orderid", "reference_id"]) || "").toLowerCase();
+        const action = String(getColumnValue(row, ["transaction_action", "action", "transaction_type", "type"]) || "").toLowerCase();
 
         const isRefundFlag =
             isRefundVal === "1" ||
@@ -51,18 +118,15 @@ export function computeAnalytics(rows = []) {
             isRefundVal === "true" ||
             isRefundVal === true ||
             orderId.startsWith("refund_") ||
-            action === "refund";
+            action === "refund" ||
+            action === "chargeback";
 
         const paymentStatus = String(
             getColumnValue(row, ["payment_status", "paymentstatus"]) || ""
         ).trim().toLowerCase();
 
         const statusRaw = String(
-            getColumnValue(row, [
-                "payment_status",
-                "transaction_status",
-                "status"
-            ]) || ""
+            getColumnValue(row, statusKeys) || ""
         ).trim().toLowerCase();
 
         const isSuccess =
@@ -71,7 +135,16 @@ export function computeAnalytics(rows = []) {
             paymentStatus === "completed" ||
             paymentStatus === "captured" ||
             paymentStatus === "paid" ||
-            (!paymentStatus && (statusRaw === "success" || statusRaw === "0" || statusRaw === "ok"));
+            paymentStatus === "settled" ||
+            (!paymentStatus && (statusRaw === "success" || statusRaw === "successful" || statusRaw === "completed" || statusRaw === "0" || statusRaw === "ok" || statusRaw === "paid"));
+
+        const isFailure =
+            paymentStatus.includes("fail") ||
+            paymentStatus.includes("declined") ||
+            paymentStatus.includes("reject") ||
+            paymentStatus.includes("error") ||
+            paymentStatus.includes("cancel") ||
+            (!paymentStatus && (statusRaw.includes("fail") || statusRaw.includes("declined") || statusRaw.includes("reject") || statusRaw === "1" || statusRaw.includes("cancel")));
 
         const isRefund = isRefundFlag || statusRaw.includes("refund");
 
@@ -90,26 +163,20 @@ export function computeAnalytics(rows = []) {
             if (isSuccess) {
                 successfulTransactions++;
                 totalAmount += amount;
+            } else if (isFailure) {
+                failedTransactions++;
             } else {
                 failedTransactions++;
             }
         }
 
-        const mode = getColumnValue(row, ["payment_mode", "pay_mode", "mode", "paymentmethod", "payment_method"]) || "Other";
+        const mode = getColumnValue(row, modeKeys) || "Other";
         paymentModes[mode] = (paymentModes[mode] || 0) + 1;
 
-        const platform = getColumnValue(row, ["platform", "device_name", "device"]) || "Other";
+        const platform = getColumnValue(row, platformKeys) || "Other";
         platformMap[platform] = (platformMap[platform] || 0) + 1;
 
-        const dateVal = getColumnValue(row, [
-            "created_at",
-            "entry_time",
-            "date",
-            "transaction_date",
-            "createdat",
-            "payment_date",
-            "timestamp"
-        ]);
+        const dateVal = getColumnValue(row, dateKeys);
 
         const d = parseDate(dateVal);
         if (d) {
@@ -219,10 +286,10 @@ export function computeAnalytics(rows = []) {
     // Generate AI Summary Insights
     const aiSummary = [];
     aiSummary.push(`Total of ${totalTransactions.toLocaleString()} transaction record(s) analyzed.`);
-    aiSummary.push(`Net Revenue: ₹${netAmount.toLocaleString()} (Gross: ₹${grossAmount.toLocaleString()}) with an overall ${successRate}% success rate.`);
+    aiSummary.push(`Net Revenue: ₹${netAmount.toLocaleString("en-IN")} (Gross: ₹${grossAmount.toLocaleString("en-IN")}) with an overall ${successRate}% success rate.`);
 
     if (refundedTransactions > 0) {
-        aiSummary.push(`${refundedTransactions} successful refund(s) totaling ₹${finalRefundAmount.toLocaleString()} (${refundRate}% refund rate). Failed refund attempts are safely excluded.`);
+        aiSummary.push(`${refundedTransactions} successful refund(s) totaling ₹${finalRefundAmount.toLocaleString("en-IN")} (${refundRate}% refund rate). Failed refund attempts are safely excluded.`);
     } else {
         aiSummary.push(`No successful refund transactions detected in this selection.`);
     }
@@ -239,7 +306,7 @@ export function computeAnalytics(rows = []) {
     if (monthlyList.length > 1) {
         const peak = [...monthlyList].sort((a, b) => b.netAmount - a.netAmount)[0];
         if (peak) {
-            aiSummary.push(`Cumulative Multi-Month Analysis: ${monthlyList.length} distinct months detected. Peak month by net revenue is ${peak.month} (₹${peak.netAmount.toLocaleString()} net).`);
+            aiSummary.push(`Cumulative Multi-Month Analysis: ${monthlyList.length} distinct months detected. Peak month by net revenue is ${peak.month} (₹${peak.netAmount.toLocaleString("en-IN")} net).`);
         }
     }
 

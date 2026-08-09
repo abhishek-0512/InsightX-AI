@@ -13,20 +13,57 @@ exports.analyze = (rows = []) => {
 
     const paymentModes = {};
 
-    rows.forEach((row) => {
-        const amount = Number(
-            detector.getValue(row, [
-                "amount",
-                "transaction_amount",
-                "payment_amount",
-                "value",
-                "total"
-            ])
-        ) || 0;
+    const amountKeys = [
+        "amount",
+        "transaction_amount",
+        "txn_amount",
+        "txnamount",
+        "payment_amount",
+        "order_amount",
+        "settlement_amount",
+        "amt",
+        "value",
+        "total",
+        "paid_amount",
+        "gross_amount",
+        "price"
+    ];
 
-        const isRefundVal = detector.getValue(row, ["is_refund", "refund", "isrefund"]);
-        const orderId = String(detector.getValue(row, ["order_id", "orderid"]) || "").toLowerCase();
-        const action = String(detector.getValue(row, ["transaction_action", "action"]) || "").toLowerCase();
+    const refundKeys = [
+        "is_refund",
+        "refund",
+        "isrefund",
+        "refund_flag",
+        "is_refunded"
+    ];
+
+    const statusKeys = [
+        "payment_status",
+        "transaction_status",
+        "status",
+        "paymentstatus",
+        "txn_status",
+        "state",
+        "order_status"
+    ];
+
+    const modeKeys = [
+        "payment_mode",
+        "pay_mode",
+        "mode",
+        "paymentmethod",
+        "payment_method",
+        "channel",
+        "gateway",
+        "method"
+    ];
+
+    rows.forEach((row) => {
+        const amount = Number(detector.getValue(row, amountKeys)) || 0;
+
+        const isRefundVal = detector.getValue(row, refundKeys);
+        const orderId = String(detector.getValue(row, ["order_id", "orderid", "reference_id"]) || "").toLowerCase();
+        const action = String(detector.getValue(row, ["transaction_action", "action", "transaction_type", "type"]) || "").toLowerCase();
 
         const isRefundFlag =
             isRefundVal === "1" ||
@@ -34,18 +71,15 @@ exports.analyze = (rows = []) => {
             isRefundVal === "true" ||
             isRefundVal === true ||
             orderId.startsWith("refund_") ||
-            action === "refund";
+            action === "refund" ||
+            action === "chargeback";
 
         const paymentStatus = String(
             detector.getValue(row, ["payment_status", "paymentstatus"]) || ""
         ).trim().toLowerCase();
 
         const statusRaw = String(
-            detector.getValue(row, [
-                "payment_status",
-                "transaction_status",
-                "status"
-            ]) || ""
+            detector.getValue(row, statusKeys) || ""
         ).trim().toLowerCase();
 
         const isSuccess =
@@ -54,16 +88,20 @@ exports.analyze = (rows = []) => {
             paymentStatus === "completed" ||
             paymentStatus === "captured" ||
             paymentStatus === "paid" ||
-            (!paymentStatus && (statusRaw === "success" || statusRaw === "0" || statusRaw === "ok"));
+            paymentStatus === "settled" ||
+            (!paymentStatus && (statusRaw === "success" || statusRaw === "successful" || statusRaw === "completed" || statusRaw === "0" || statusRaw === "ok" || statusRaw === "paid"));
 
         const isFailure =
             paymentStatus.includes("fail") ||
             paymentStatus.includes("declined") ||
             paymentStatus.includes("reject") ||
             paymentStatus.includes("error") ||
-            (!paymentStatus && (statusRaw.includes("fail") || statusRaw.includes("declined") || statusRaw === "1"));
+            paymentStatus.includes("cancel") ||
+            (!paymentStatus && (statusRaw.includes("fail") || statusRaw.includes("declined") || statusRaw.includes("reject") || statusRaw === "1" || statusRaw.includes("cancel")));
 
-        if (isRefundFlag || statusRaw.includes("refund")) {
+        const isRefund = isRefundFlag || statusRaw.includes("refund");
+
+        if (isRefund) {
             // Only SUCCESSFUL refunds are counted towards refund metrics
             if (isSuccess) {
                 refundedTransactions++;
@@ -86,15 +124,7 @@ exports.analyze = (rows = []) => {
             }
         }
 
-        const mode =
-            detector.getValue(row, [
-                "payment_mode",
-                "pay_mode",
-                "mode",
-                "paymentmethod",
-                "payment_method"
-            ]) || "Unknown";
-
+        const mode = detector.getValue(row, modeKeys) || "Other";
         paymentModes[mode] = (paymentModes[mode] || 0) + 1;
     });
 
