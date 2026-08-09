@@ -4,6 +4,8 @@ import toast from "react-hot-toast";
 
 import api from "../api/axios";
 import { useAnalysis } from "../context/AnalysisContext";
+import { parseFileInBrowser } from "../utils/fileParser";
+import { computeAnalytics } from "../utils/analyticsEngine";
 
 function UploadBox() {
     const { setResult, result } = useAnalysis();
@@ -33,24 +35,49 @@ function UploadBox() {
             type: lowerName.endsWith(".csv") ? "CSV Document" : "Excel Spreadsheet"
         });
 
-        const formData = new FormData();
-        formData.append("file", file);
+        setLoading(true);
+        const toastId = toast.loading("Analyzing transaction dataset...");
 
         try {
-            setLoading(true);
-            const toastId = toast.loading("Analyzing transaction dataset...");
+            // 1. Instant client-side parsing (guarantees 100% uptime & zero failure on Vercel)
+            const rows = await parseFileInBrowser(file);
+            const localAnalysis = computeAnalytics(rows);
 
-            const { data } = await api.post("/upload", formData, {
-                headers: {
-                    "Content-Type": "multipart/form-data"
-                }
-            });
+            const payload = {
+                success: true,
+                message: "Dataset analyzed successfully.",
+                fileName: file.name,
+                rows,
+                analysis: localAnalysis
+            };
 
-            setResult(data);
-            toast.success(data.message || "Dataset analyzed successfully!", { id: toastId });
+            setResult(payload);
+            toast.success(`Successfully analyzed ${rows.length.toLocaleString()} transactions!`, { id: toastId });
+
+            // 2. Background sync with backend (if backend is active)
+            try {
+                const formData = new FormData();
+                formData.append("file", file);
+
+                api.post("/upload", formData, {
+                    headers: { "Content-Type": "multipart/form-data" }
+                }).then(({ data }) => {
+                    if (data && data.reportFileName) {
+                        setResult({
+                            ...payload,
+                            reportFileName: data.reportFileName,
+                            reportPath: data.reportPath
+                        });
+                    }
+                }).catch((backendErr) => {
+                    console.log("Backend offline or sleeping (using client engine):", backendErr.message);
+                });
+            } catch (syncErr) {
+                // Non-critical
+            }
         } catch (err) {
             console.error("Upload error:", err);
-            toast.error(err.response?.data?.message || "Upload Failed. Please verify your file format.");
+            toast.error(err.message || "Failed to parse file. Please verify CSV/Excel formatting.", { id: toastId });
         } finally {
             setLoading(false);
         }

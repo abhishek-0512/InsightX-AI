@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { FaDownload, FaSpinner, FaFileExcel } from "react-icons/fa";
 import toast from "react-hot-toast";
-import api, { getBackendOrigin } from "../api/axios";
 import { useAnalysis } from "../context/AnalysisContext";
+import { exportExcelInBrowser } from "../utils/excelExporter";
+import api from "../api/axios";
 
 function DownloadButton() {
     const { result, filteredRows } = useAnalysis();
@@ -10,26 +11,25 @@ function DownloadButton() {
 
     if (!result || !result.rows || !result.rows.length) return null;
 
-    const fileName = result.fileName || result.file || "InsightX_Analytics";
-    const reportFileName = result.reportFileName;
-    const reportPath = result.reportPath;
+    const fileName = result.fileName || "InsightX_Analytics";
 
     const handleDownload = async () => {
         setDownloading(true);
-        const toastId = toast.loading("Preparing Excel Report...");
+        const toastId = toast.loading("Generating Excel Report...");
 
         try {
-            // Approach 1: Export dynamically filtered dataset via API blob stream
-            if (filteredRows && filteredRows.length > 0) {
+            // Try backend export first if online
+            try {
                 const response = await api.post(
                     "/report/export",
                     {
                         fileName: fileName.endsWith(".xlsx") ? fileName : `${fileName}.xlsx`,
-                        rows: filteredRows,
+                        rows: filteredRows || result.rows,
                         analysis: result.analysis
                     },
                     {
-                        responseType: "blob"
+                        responseType: "blob",
+                        timeout: 5000
                     }
                 );
 
@@ -39,7 +39,7 @@ function DownloadButton() {
                 const downloadUrl = window.URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = downloadUrl;
-                a.download = reportFileName || `${fileName}_report.xlsx`;
+                a.download = `${fileName}_report.xlsx`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -47,35 +47,16 @@ function DownloadButton() {
 
                 toast.success("Excel Report downloaded successfully!", { id: toastId });
                 return;
+            } catch (apiErr) {
+                console.log("Backend offline/sleeping, using browser Excel generator:", apiErr.message);
             }
 
-            // Approach 2: Direct download from backend static reports
-            const backendOrigin = getBackendOrigin();
-            const downloadUrl = reportPath?.startsWith("http")
-                ? reportPath
-                : `${backendOrigin}${reportPath || `/reports/${reportFileName}`}`;
-
-            const a = document.createElement("a");
-            a.href = downloadUrl;
-            a.target = "_blank";
-            a.download = reportFileName || "Analytics_Report.xlsx";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-
+            // Client-side instant Excel generator fallback (100% reliable on Vercel)
+            exportExcelInBrowser(filteredRows || result.rows, result.analysis, `${fileName}_report.xlsx`);
             toast.success("Excel Report downloaded successfully!", { id: toastId });
         } catch (err) {
             console.error("Download failed:", err);
-
-            // Fallback: Direct window open if stream failed
-            try {
-                const backendOrigin = getBackendOrigin();
-                const fallbackUrl = `${backendOrigin}/reports/${reportFileName || path.basename(reportPath || "")}`;
-                window.open(fallbackUrl, "_blank");
-                toast.success("Opening report in new tab...", { id: toastId });
-            } catch (fallbackErr) {
-                toast.error("Failed to download report. Please try again.", { id: toastId });
-            }
+            toast.error("Failed to generate report. Please try again.", { id: toastId });
         } finally {
             setDownloading(false);
         }
