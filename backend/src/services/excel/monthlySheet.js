@@ -1,42 +1,43 @@
 const {
-    titleStyle,
-    headerStyle,
+    applySheetTitle,
+    applyTableHeaders,
+    applyZebraStriping,
+    applyTotalRowStyle,
     currencyStyle,
+    numberStyle,
     autoFitColumns
 } = require("./styles");
 
 module.exports = async (workbook, analysis) => {
     const sheet = workbook.addWorksheet("Monthly Breakdown");
 
-    // ---------- Title ----------
-    sheet.mergeCells("A1:H1");
-    sheet.getCell("A1").value = "Monthly Financial & Revenue Breakdown";
-    titleStyle(sheet.getCell("A1"));
-    sheet.getRow(1).height = 28;
+    // ---------- Title Banner ----------
+    applySheetTitle(
+        sheet,
+        "Monthly Financial Performance & Comparison Breakdown",
+        "Month-by-month reconciliation of revenue, transaction volumes, and verified refund deductions",
+        9
+    );
 
     sheet.addRow([]);
 
-    // ---------- Headers ----------
+    // ---------- Table Headers ----------
     const headers = [
-        "Month",
-        "Total Tx",
+        "Billing Month",
+        "Total Volume",
         "Successful Tx",
         "Successful Refunds",
-        "Refund Amount",
-        "Gross Revenue",
-        "Net Revenue",
-        "Success Rate (%)"
+        "Refund Amount (₹)",
+        "Gross Revenue (₹)",
+        "Net Revenue (₹)",
+        "Success Rate (%)",
+        "Top Channel"
     ];
 
     const headerRow = sheet.addRow(headers);
-    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
-    headerRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FF0F172A" } // slate-900
-    };
-    headerRow.height = 24;
+    applyTableHeaders(headerRow, headers);
 
+    const startRow = sheet.lastRow.number + 1;
     const monthlyList = analysis.monthly?.monthlyList || [];
 
     let totalTx = 0;
@@ -62,13 +63,20 @@ module.exports = async (workbook, analysis) => {
             m.refundAmount,
             m.grossAmount,
             m.netAmount,
-            `${m.successRate}%`
+            `${m.successRate}%`,
+            m.topPaymentMode || "-"
         ]);
 
+        numberStyle(row.getCell(2));
+        numberStyle(row.getCell(3));
+        numberStyle(row.getCell(4));
         currencyStyle(row.getCell(5));
         currencyStyle(row.getCell(6));
         currencyStyle(row.getCell(7));
     });
+
+    const endRow = sheet.lastRow.number;
+    applyZebraStriping(sheet, startRow, endRow);
 
     // ---------- Cumulative Total Row ----------
     if (monthlyList.length > 0) {
@@ -82,34 +90,19 @@ module.exports = async (workbook, analysis) => {
             totalRefundAmount,
             totalGross,
             totalNet,
-            `${cumulativeSuccessRate}%`
+            `${cumulativeSuccessRate}%`,
+            "All Channels"
         ]);
 
-        totalRow.font = { bold: true };
-        totalRow.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: "FFE2E8F0" } // slate-200
-        };
-
+        numberStyle(totalRow.getCell(2));
+        numberStyle(totalRow.getCell(3));
+        numberStyle(totalRow.getCell(4));
         currencyStyle(totalRow.getCell(5));
         currencyStyle(totalRow.getCell(6));
         currencyStyle(totalRow.getCell(7));
-    }
 
-    // ---------- Borders ----------
-    sheet.eachRow((r, rowIdx) => {
-        if (rowIdx > 2) {
-            r.eachCell((cell) => {
-                cell.border = {
-                    top: { style: "thin" },
-                    left: { style: "thin" },
-                    bottom: { style: "thin" },
-                    right: { style: "thin" }
-                };
-            });
-        }
-    });
+        applyTotalRowStyle(totalRow, 9);
+    }
 
     autoFitColumns(sheet);
 };
