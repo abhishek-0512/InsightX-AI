@@ -3,8 +3,10 @@ const path = require("path");
 const fs = require("fs");
 
 const addExecutiveSheet = require("./executiveSheet");
+const addMonthlySheet = require("./monthlySheet");
 const addDashboardSheet = require("./dashboardSheet");
 const addPaymentSheet = require("./paymentSheet");
+const addDeviceSheet = require("./deviceSheet");
 const addCharts = require("./charts");
 
 const REPORT_DIR = path.join(__dirname, "../../reports");
@@ -27,26 +29,27 @@ exports.generateWorkbook = async ({
     workbook.created = new Date();
     workbook.modified = new Date();
 
-    // ====================================================
-    // Executive Summary
-    // ====================================================
+    // 1. Executive Summary
     await addExecutiveSheet(workbook, analysis);
 
-    // ====================================================
-    // Dashboard
-    // ====================================================
+    // 2. Monthly Breakdown Sheet
+    if (analysis.monthly?.available || (analysis.monthly?.monthlyList && analysis.monthly.monthlyList.length > 0)) {
+        await addMonthlySheet(workbook, analysis);
+    }
+
+    // 3. Dashboard Sheet
     await addDashboardSheet(workbook, analysis);
 
-    // ====================================================
-    // Payment Analytics
-    // ====================================================
+    // 4. Payment Analytics Sheet
     await addPaymentSheet(workbook, analysis);
 
-    // ====================================================
-    // Raw Data
-    // ====================================================
-    const rawSheet = workbook.addWorksheet("Raw Data");
+    // 5. Device & Platform Sheet
+    if (analysis.device?.available) {
+        await addDeviceSheet(workbook, analysis);
+    }
 
+    // 6. Raw Data Sheet
+    const rawSheet = workbook.addWorksheet("Raw Data");
     if (rows && rows.length > 0) {
         rawSheet.columns = Object.keys(rows[0]).map((header) => ({
             header,
@@ -71,14 +74,10 @@ exports.generateWorkbook = async ({
         rows.forEach((row) => rawSheet.addRow(row));
     }
 
-    // ====================================================
-    // Charts
-    // ====================================================
+    // 7. Charts Data Sheet
     await addCharts(workbook, analysis);
 
-    // ====================================================
     // Save Workbook
-    // ====================================================
     const reportName = `${Date.now()}-${path.parse(fileName).name}.xlsx`;
     const reportPath = path.join(REPORT_DIR, reportName);
 
