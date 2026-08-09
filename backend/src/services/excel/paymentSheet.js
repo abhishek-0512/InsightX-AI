@@ -1,6 +1,7 @@
 const {
     titleStyle,
     headerStyle,
+    currencyStyle,
     autoFitColumns
 } = require("./styles");
 
@@ -9,85 +10,63 @@ module.exports = async (workbook, analysis) => {
 
     // ---------- Title ----------
     sheet.mergeCells("A1:C1");
-    const titleCell = sheet.getCell("A1");
-    titleCell.value = "Payment Analytics";
-    titleStyle(titleCell);
+    sheet.getCell("A1").value = "Payment & Revenue Analytics";
+    titleStyle(sheet.getCell("A1"));
+    sheet.getRow(1).height = 28;
 
     // ---------- Payment Mode Summary ----------
     sheet.addRow([]);
-    const headerRow = sheet.addRow(["Payment Mode", "Transactions"]);
-
-    headerStyle(headerRow.getCell(1));
-    headerStyle(headerRow.getCell(2));
+    const modeHeader = sheet.addRow(["Payment Mode", "Successful Volume", "Share (%)"]);
+    headerStyle(modeHeader.getCell(1));
+    headerStyle(modeHeader.getCell(2));
+    headerStyle(modeHeader.getCell(3));
 
     const paymentModes = analysis.payment?.paymentModes || {};
+    const totalTransactions = analysis.payment?.overview?.totalTransactions || 1;
 
     Object.entries(paymentModes).forEach(([mode, count]) => {
-        sheet.addRow([mode, count]);
+        const share = Number(((count / totalTransactions) * 100).toFixed(2));
+        sheet.addRow([mode, count, `${share}%`]);
     });
 
-    // ---------- Revenue ----------
-    let rowNumber = sheet.lastRow.number + 2;
+    // ---------- Revenue Summary ----------
+    let row = sheet.lastRow.number + 2;
+    sheet.getCell(`A${row}`).value = "Revenue Performance";
+    sheet.getCell(`A${row}`).font = { bold: true, size: 13 };
+    row++;
 
-    const revenueHeader = sheet.getCell(`A${rowNumber}`);
-    revenueHeader.value = "Revenue Summary";
-    headerStyle(revenueHeader);
+    const revHeader = sheet.addRow(["Financial Metric", "Amount (₹)"]);
+    headerStyle(revHeader.getCell(1));
+    headerStyle(revHeader.getCell(2));
 
-    const totalRevRow = sheet.addRow([
-        "Total Revenue",
-        analysis.payment?.revenue?.totalAmount || 0
-    ]);
-    
-    const refundRevRow = sheet.addRow([
-        "Refund Amount",
-        analysis.payment?.revenue?.refundAmount || 0
-    ]);
-    
-    const netRevRow = sheet.addRow([
-        "Net Revenue",
-        analysis.payment?.revenue?.netAmount || 0
-    ]);
+    const r1 = sheet.addRow(["Gross Revenue", analysis.payment?.revenue?.totalAmount || 0]);
+    const r2 = sheet.addRow(["Refund Amount (Successful Only)", analysis.payment?.revenue?.refundAmount || 0]);
+    const r3 = sheet.addRow(["Net Revenue", analysis.payment?.revenue?.netAmount || 0]);
 
-    totalRevRow.getCell(2).numFmt = '₹#,##0.00';
-    refundRevRow.getCell(2).numFmt = '₹#,##0.00';
-    netRevRow.getCell(2).numFmt = '₹#,##0.00';
+    currencyStyle(r1.getCell(2));
+    currencyStyle(r2.getCell(2));
+    currencyStyle(r3.getCell(2));
 
-    // ---------- Success / Failure ----------
-    rowNumber = sheet.lastRow.number + 2;
+    // ---------- Transaction Summary ----------
+    row = sheet.lastRow.number + 2;
+    sheet.getCell(`A${row}`).value = "Transaction Summary";
+    sheet.getCell(`A${row}`).font = { bold: true, size: 13 };
+    row++;
 
-    const transactionHeader = sheet.getCell(`A${rowNumber}`);
-    transactionHeader.value = "Transaction Summary";
-    headerStyle(transactionHeader);
+    const txHeader = sheet.addRow(["Operational Metric", "Value"]);
+    headerStyle(txHeader.getCell(1));
+    headerStyle(txHeader.getCell(2));
 
-    sheet.addRow([
-        "Successful",
-        analysis.payment?.overview?.successfulTransactions || 0
-    ]);
-
-    sheet.addRow([
-        "Failed",
-        analysis.payment?.overview?.failedTransactions || 0
-    ]);
-
-    sheet.addRow([
-        "Refunded",
-        analysis.payment?.overview?.refundedTransactions || 0
-    ]);
-
-    sheet.addRow([
-        "Success Rate (%)",
-        analysis.payment?.successRate || 0
-    ]);
-
-    sheet.addRow([
-        "Refund Rate (%)",
-        analysis.payment?.refundRate || 0
-    ]);
+    sheet.addRow(["Total Transactions", analysis.payment?.overview?.totalTransactions || 0]);
+    sheet.addRow(["Successful Transactions", analysis.payment?.overview?.successfulTransactions || 0]);
+    sheet.addRow(["Successful Refunds", analysis.payment?.overview?.refundedTransactions || 0]);
+    sheet.addRow(["Success Rate", `${analysis.payment?.successRate || 0}%`]);
+    sheet.addRow(["Refund Rate", `${analysis.payment?.refundRate || 0}%`]);
 
     // ---------- Borders ----------
-    sheet.eachRow((r) => {
-        if (r.hasValues) {
-            r.eachCell({ includeEmpty: false }, (cell) => {
+    sheet.eachRow((r, idx) => {
+        if (idx > 1) {
+            r.eachCell((cell) => {
                 cell.border = {
                     top: { style: "thin" },
                     left: { style: "thin" },

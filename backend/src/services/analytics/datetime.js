@@ -1,26 +1,18 @@
 const detector = require("../parser/detector");
+const { parseDate } = require("../../utils/dateParser");
 
-const groupByMonth = (date) => {
-    const d = new Date(date);
-
-    if (isNaN(d)) return null;
-
+const groupByMonth = (d) => {
+    if (!d || isNaN(d.getTime())) return null;
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
-const groupByDate = (date) => {
-    const d = new Date(date);
-
-    if (isNaN(d)) return null;
-
+const groupByDate = (d) => {
+    if (!d || isNaN(d.getTime())) return null;
     return d.toISOString().split("T")[0];
 };
 
-const groupByHour = (date) => {
-    const d = new Date(date);
-
-    if (isNaN(d)) return null;
-
+const groupByHour = (d) => {
+    if (!d || isNaN(d.getTime())) return null;
     return d.getHours();
 };
 
@@ -28,7 +20,7 @@ exports.analyze = (rows = []) => {
 
     if (!rows.length) return {};
 
-    const schema = detector.detectSchema(rows);
+    const schema = detector.detectSchema ? detector.detectSchema(rows) : {};
 
     const result = {};
 
@@ -39,8 +31,8 @@ exports.analyze = (rows = []) => {
         const values = rows
             .map(row => row[column])
             .filter(Boolean)
-            .map(value => new Date(value))
-            .filter(date => !isNaN(date));
+            .map(value => parseDate(value))
+            .filter(date => date !== null);
 
         if (!values.length) return;
 

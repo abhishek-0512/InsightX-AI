@@ -1,19 +1,38 @@
-import React from "react";
+import { FaChartLine } from "react-icons/fa";
 
-export default function Navbar() {
+function Navbar() {
     return (
-        <header className="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+        <nav className="border-b border-slate-800 bg-slate-900">
+
             <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+
                 <div className="flex items-center gap-3">
-                    <div className="bg-cyan-500 text-slate-950 font-black px-3 py-1 rounded-lg text-lg">
-                        IX
+
+                    <FaChartLine
+                        size={26}
+                        className="text-cyan-400"
+                    />
+
+                    <div>
+                        <h1 className="text-2xl font-bold">
+                            InsightX AI
+                        </h1>
+
+                        <p className="text-xs text-slate-400">
+                            CSV & Excel Analytics Platform
+                        </p>
                     </div>
-                    <span className="font-bold text-lg text-white tracking-wide">InsightX AI</span>
+
                 </div>
-                <span className="text-xs text-slate-400 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-full">
-                    v4.0 Live Engine
-                </span>
+
+                <div className="text-sm text-slate-400">
+                    AI Powered Reporting
+                </div>
+
             </div>
-        </header>
+
+        </nav>
     );
 }
+
+export default Navbar;

@@ -1,10 +1,11 @@
-const fs = require("fs");
 const { parseFile } = require("../services/parser");
 const analytics = require("../services/analytics");
+
 const workbook = require("../services/excel/workbook");
 
 exports.generateReport = async (req, res) => {
     try {
+
         if (!req.file) {
             return res.status(400).json({
                 success: false,
@@ -25,32 +26,16 @@ exports.generateReport = async (req, res) => {
             analysis
         });
 
-        if (fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
-        }
-
-        return res.download(reportPath, (err) => {
-            if (err) {
-                console.error("File download error:", err);
-                if (!res.headersSent) {
-                    res.status(500).json({
-                        success: false,
-                        message: "Error downloading the file."
-                    });
-                }
-            }
-        });
+        return res.download(reportPath);
 
     } catch (error) {
-        console.error("Report generation error:", error);
 
-        if (req.file && fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
-        }
+        console.error(error);
 
         return res.status(500).json({
             success: false,
-            message: error.message || "Failed to generate report"
+            message: error.message
         });
+
     }
 };

@@ -1,24 +1,40 @@
-import React from "react";
+import { FaDownload } from "react-icons/fa";
 import { useAnalysis } from "../context/AnalysisContext";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://insightx-ai.onrender.com";
+function DownloadButton() {
 
-export default function DownloadButton() {
     const { result } = useAnalysis();
-    if (!result) return null;
+
+    const reportPath = result?.reportPath;
+
+    if (!reportPath) return null;
 
     const handleDownload = () => {
-        window.open(`${API_BASE_URL}/api/analytics/export`, "_blank");
+        window.open(
+            `http://localhost:5001${reportPath}`,
+            "_blank"
+        );
     };
 
     return (
-        <div className="flex justify-end my-6">
+
+        <div className="flex justify-center mt-10">
+
             <button
                 onClick={handleDownload}
-                className="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold px-6 py-3 rounded-xl shadow-lg transition-all"
+                className="flex items-center gap-3 bg-green-600 hover:bg-green-700 transition px-8 py-4 rounded-xl font-semibold text-lg"
             >
-                Download Executive Report (XLSX)
+
+                <FaDownload size={20} />
+
+                Download Excel Report
+
             </button>
+
         </div>
+
     );
+
 }
+
+export default DownloadButton;

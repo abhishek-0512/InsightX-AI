@@ -1,171 +1,135 @@
-const styles = require("./styles");
+const {
+    titleStyle,
+    headerStyle,
+    currencyStyle,
+    autoFitColumns
+} = require("./styles");
 
 module.exports = async (workbook, analysis) => {
     const sheet = workbook.addWorksheet("Executive Summary");
 
-    // Expand columns to handle the wider tables seen in the screenshots
-    sheet.columns = [
-        { width: 35 }, // A: Metric / Month
-        { width: 20 }, // B: Total / Transactions
-        { width: 20 }, // C: Month 1 / GMV (Lakhs)
-        { width: 20 }, // D: Month 2 / Avg Txn
-        { width: 20 }, // E: Month 3 / Successful
-        { width: 20 }, // F: Growth 1 / Failed
-        { width: 20 }, // G: Growth 2 / Expired
-        { width: 20 }, // H: Trend / Success Rate
-        { width: 25 }, // I: Peak Day 1
-        { width: 25 }, // J: Peak Day 2
-        { width: 25 }  // K: Peak Day 3
-    ];
+    // ---------- Title ----------
+    sheet.mergeCells("A1:D1");
+    sheet.getCell("A1").value = "InsightX AI Executive Business Report";
+    titleStyle(sheet.getCell("A1"));
+    sheet.getRow(1).height = 28;
 
-    // ====================================================
-    // 1. Report Header (Matching the SS Header style)
-    // ====================================================
-    sheet.mergeCells("A1:K1");
-    const mainTitle = sheet.getCell("A1");
-    mainTitle.value = "JUPITER GROUP — TRANSACTION REPORT";
-    styles.titleStyle(mainTitle);
-    sheet.getRow(1).height = 30;
+    let row = 3;
 
-    sheet.mergeCells("A2:K2");
-    const subTitle1 = sheet.getCell("A2");
-    subTitle1.value = `Period: ${analysis.meta?.period || "Q1"} | Locations: ${analysis.meta?.locationsCount || 0} | Confidential`;
-    subTitle1.font = { italic: true, color: { argb: "1E293B" } };
-    subTitle1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F8FAFC" } };
-
-    sheet.mergeCells("A3:K3");
-    const subTitle2 = sheet.getCell("A3");
-    subTitle2.value = `Total Records: ${analysis.meta?.totalRecords || 0}`;
-    subTitle2.font = { italic: true, color: { argb: "1E293B" } };
-    subTitle2.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F8FAFC" } };
-
-    let row = 5;
-
-    // ====================================================
-    // 2. OVERALL PERFORMANCE SUMMARY 
-    // ====================================================
-    sheet.mergeCells(`A${row}:K${row}`);
-    const summaryTitle = sheet.getCell(`A${row}`);
-    summaryTitle.value = "OVERALL PERFORMANCE SUMMARY";
-    styles.headerStyle(summaryTitle);
-    summaryTitle.alignment = { horizontal: "left" };
+    // ================= KPIs =================
+    sheet.getCell(`A${row}`).value = "KEY PERFORMANCE INDICATORS (CUMULATIVE)";
+    sheet.getCell(`A${row}`).font = { bold: true, size: 13 };
     row++;
 
-    // Safely extract dynamic months for headers (e.g., Jan, Feb, Mar)
-    const months = Object.keys(analysis.monthly?.monthly || {});
-    const m1 = months[0] || "Month 1";
-    const m2 = months[1] || "Month 2";
-    const m3 = months[2] || "Month 3";
+    const kpiHeader = sheet.addRow(["Performance Metric", "Value"]);
+    headerStyle(kpiHeader.getCell(1));
+    headerStyle(kpiHeader.getCell(2));
 
-    const perfHeaders = sheet.addRow([
-        "Metric", 
-        "Total", 
-        m1, 
-        m2, 
-        m3, 
-        `${m1}-${m2} Growth`, 
-        `${m2}-${m3} Growth`, 
-        "Trend"
-    ]);
-    perfHeaders.eachCell((cell) => styles.headerStyle(cell));
-    
-    // Overview Data
-    const ov = analysis.payment?.overview || {};
-    const rev = analysis.payment?.revenue || {};
-    const monthlyStats = analysis.monthly?.monthly || {};
+    sheet.addRow(["Total Transaction Volume", analysis.payment?.overview?.totalTransactions || 0]);
+    sheet.addRow(["Successful Transactions", analysis.payment?.overview?.successfulTransactions || 0]);
+    sheet.addRow(["Successful Refunds", analysis.payment?.overview?.refundedTransactions || 0]);
+    sheet.addRow(["Success Rate", `${analysis.payment?.successRate || 0}%`]);
+    sheet.addRow(["Refund Rate", `${analysis.payment?.refundRate || 0}%`]);
+    const gRow = sheet.addRow(["Gross Revenue", analysis.payment?.revenue?.totalAmount || 0]);
+    const rfRow = sheet.addRow(["Refund Amount Deducted", analysis.payment?.revenue?.refundAmount || 0]);
+    const nRow = sheet.addRow(["Net Revenue", analysis.payment?.revenue?.netAmount || 0]);
 
-    // Helper to grab monthly metric safely
-    const getM = (m, key) => monthlyStats[m] ? monthlyStats[m][key] || 0 : "-";
+    currencyStyle(gRow.getCell(2));
+    currencyStyle(rfRow.getCell(2));
+    currencyStyle(nRow.getCell(2));
 
-    const perfRows = [
-        ["Total Transactions", ov.totalTransactions || 0, getM(m1, 'transactions'), getM(m2, 'transactions'), getM(m3, 'transactions'), "-", "-", "Steady"],
-        ["Total GMV (₹ Lakhs)", (rev.totalAmount || 0) / 100000, getM(m1, 'amount')/100000, getM(m2, 'amount')/100000, getM(m3, 'amount')/100000, "-", "-", "Steady"],
-        ["Average Transaction (₹)", rev.totalAmount / (ov.totalTransactions || 1), "-", "-", "-", "-", "-", "Stable"],
-        ["Success Rate (%)", analysis.payment?.successRate || 0, "-", "-", "-", "-", "-", "Stable"],
-        ["Successful Transactions", ov.successfulTransactions || 0, getM(m1, 'success'), getM(m2, 'success'), getM(m3, 'success'), "-", "-", "Growing"],
-        ["Failed Transactions", ov.failedTransactions || 0, getM(m1, 'failed'), getM(m2, 'failed'), getM(m3, 'failed'), "-", "-", "Stable"],
-        ["Expired Transactions", ov.expiredTransactions || 0, getM(m1, 'expired'), getM(m2, 'expired'), getM(m3, 'expired'), "-", "-", "Rising"]
-    ];
+    row = sheet.lastRow.number + 2;
 
-    perfRows.forEach(r => sheet.addRow(r));
-    row = sheet.lastRow.number + 3;
-
-    // ====================================================
-    // 3. MONTH-WISE ANALYSIS
-    // ====================================================
-    sheet.mergeCells(`A${row}:K${row}`);
-    const monthTitle = sheet.getCell(`A${row}`);
-    monthTitle.value = "MONTH-WISE ANALYSIS";
-    styles.headerStyle(monthTitle);
-    monthTitle.alignment = { horizontal: "left" };
+    // ================= TOP PAYMENT MODES =================
+    sheet.getCell(`A${row}`).value = "TOP PAYMENT CHANNELS";
+    sheet.getCell(`A${row}`).font = { bold: true, size: 13 };
     row++;
 
-    const monthHeaders = sheet.addRow([
-        "Month", "Transactions", "GMV (₹ Lakhs)", "Avg Txn (₹)", "Successful", "Failed", "Expired", "Success Rate", "Peak Day 1", "Peak Day 2", "Peak Day 3"
-    ]);
-    monthHeaders.eachCell((cell) => styles.headerStyle(cell));
+    const modeHeader = sheet.addRow(["Payment Channel", "Volume"]);
+    headerStyle(modeHeader.getCell(1));
+    headerStyle(modeHeader.getCell(2));
 
-    Object.entries(analysis.monthly?.monthly || {}).forEach(([month, stats]) => {
-        sheet.addRow([
-            month,
-            stats.transactions || 0,
-            (stats.amount || 0) / 100000,
-            (stats.amount || 0) / (stats.transactions || 1),
-            stats.success || 0,
-            stats.failed || 0,
-            stats.expired || 0,
-            `${stats.successRate || 0}%`,
-            stats.peakDay1 || "-",
-            stats.peakDay2 || "-",
-            stats.peakDay3 || "-"
-        ]);
-    });
+    Object.entries(analysis.payment.paymentModes || {})
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .forEach(([mode, count]) => {
+            sheet.addRow([mode, count]);
+        });
 
-    row = sheet.lastRow.number + 3;
+    row = sheet.lastRow.number + 2;
 
-    // ====================================================
-    // 4. MONTH-ON-MONTH GROWTH
-    // ====================================================
-    sheet.mergeCells(`A${row}:D${row}`);
-    const growthTitle = sheet.getCell(`A${row}`);
-    growthTitle.value = "MONTH-ON-MONTH GROWTH";
-    styles.headerStyle(growthTitle);
-    growthTitle.alignment = { horizontal: "left" };
-    row++;
+    // ================= MONTHLY PERFORMANCE SUMMARY =================
+    if (analysis.monthly && analysis.monthly.available) {
+        sheet.getCell(`A${row}`).value = "MONTHLY FINANCIAL PERFORMANCE";
+        sheet.getCell(`A${row}`).font = { bold: true, size: 13 };
+        row++;
 
-    const growthHeaders = sheet.addRow(["Period", "Txn Growth", "GMV Growth", "Success Rate Δ"]);
-    
-    // Apply styling only to the used cells in this row (A to D)
-    for(let i = 1; i <= 4; i++) {
-        styles.headerStyle(growthHeaders.getCell(i));
+        const mHeader = sheet.addRow(["Month", "Total Volume", "Successful Tx", "Refund Amount", "Gross Revenue", "Net Revenue", "Success Rate"]);
+        for (let c = 1; c <= 7; c++) {
+            headerStyle(mHeader.getCell(c));
+        }
+
+        const monthlyList = analysis.monthly.monthlyList || [];
+        monthlyList.forEach((m) => {
+            const mRow = sheet.addRow([
+                m.month,
+                m.transactions,
+                m.successfulTransactions,
+                m.refundAmount,
+                m.grossAmount,
+                m.netAmount,
+                `${m.successRate}%`
+            ]);
+            currencyStyle(mRow.getCell(4));
+            currencyStyle(mRow.getCell(5));
+            currencyStyle(mRow.getCell(6));
+        });
+
+        row = sheet.lastRow.number + 2;
     }
 
-    // Dummy data fallback for structure—your analytics.js will need to calculate this
-    const growthRows = [
-        [`${m1} - ${m2}`, "+15%", "+10%", "+2.5%"],
-        [`${m2} - ${m3}`, "+12%", "+18%", "-0.5%"]
-    ];
+    // ================= AI INSIGHTS =================
+    sheet.getCell(`A${row}`).value = "EXECUTIVE INSIGHTS";
+    sheet.getCell(`A${row}`).font = { bold: true, size: 13 };
+    row++;
 
-    growthRows.forEach(r => sheet.addRow(r));
+    const insights = [];
 
-    // ====================================================
-    // Final Borders & Styling Cleanup
-    // ====================================================
-    sheet.eachRow((r, rowNumber) => {
-        // Skip the main titles from getting standard thin borders
-        if (rowNumber > 3 && r.hasValues) {
-            r.eachCell({ includeEmpty: false }, (cell) => {
-                cell.border = {
-                    top: { style: "thin" },
-                    left: { style: "thin" },
-                    bottom: { style: "thin" },
-                    right: { style: "thin" }
-                };
-            });
-        }
+    if (analysis.payment.successRate >= 95)
+        insights.push("Excellent payment success rate observed across the business portfolio.");
+    else if (analysis.payment.successRate >= 85)
+        insights.push("Payment success rate is healthy with strong customer conversion.");
+    else
+        insights.push("Payment processing is stable; monitor gateway routing for high-value transactions.");
+
+    if (analysis.payment.overview.refundedTransactions > 0) {
+        insights.push(`Recorded ${analysis.payment.overview.refundedTransactions} successful refund(s) totaling ₹${analysis.payment.revenue.refundAmount.toLocaleString()} (${analysis.payment.refundRate}% refund rate). Failed refund attempts are excluded.`);
+    }
+
+    if (analysis.monthly && analysis.monthly.available && analysis.monthly.peakMonth)
+        insights.push(`Peak revenue month: ${analysis.monthly.peakMonth[0]} with ₹${analysis.monthly.peakMonth[1].netAmount.toLocaleString()} net revenue.`);
+
+    const topMode = Object.entries(analysis.payment.paymentModes || {})
+        .sort((a, b) => b[1] - a[1])[0];
+
+    if (topMode)
+        insights.push(`${topMode[0]} is the primary transaction channel.`);
+
+    insights.forEach((text) => {
+        sheet.addRow([`• ${text}`]);
     });
 
-    // Formatting currency for the "Average Transaction" and GMV cells dynamically where needed
-    sheet.getColumn(3).numFmt = '₹#,##0.00'; 
-    sheet.getColumn(4).numFmt = '₹#,##0.00'; 
+    sheet.eachRow((r, index) => {
+        if (index === 1) return;
+        r.eachCell((cell) => {
+            cell.border = {
+                top: { style: "thin" },
+                left: { style: "thin" },
+                bottom: { style: "thin" },
+                right: { style: "thin" }
+            };
+        });
+    });
+
+    autoFitColumns(sheet);
 };

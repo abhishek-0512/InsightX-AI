@@ -12,13 +12,14 @@
     "csv",
     "excel",
     "analytics",
+    "mysql",
     "reports",
     "ai"
   ],
   "author": "Abhishek Gangwar",
   "license": "ISC",
   "dependencies": {
-    "cors": "^2.8.6",
+    "cors": "^2.8.5",
     "csv-parse": "^7.0.1",
     "csv-parser": "^3.2.0",
     "dotenv": "^17.4.2",
@@ -26,6 +27,7 @@
     "express": "^5.1.0",
     "mime-types": "^3.0.2",
     "multer": "^2.0.2",
+    "mysql2": "^3.14.3",
     "uuid": "^14.0.0",
     "xlsx": "^0.18.5"
   },

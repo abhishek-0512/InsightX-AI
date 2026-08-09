@@ -1,6 +1,7 @@
 const {
     titleStyle,
     headerStyle,
+    currencyStyle,
     autoFitColumns
 } = require("./styles");
 
@@ -9,17 +10,15 @@ module.exports = async (workbook, analysis) => {
 
     // ---------- Title ----------
     sheet.mergeCells("A1:D1");
-    const titleCell = sheet.getCell("A1");
-    titleCell.value = "InsightX AI Analytics Dashboard";
-    titleStyle(titleCell);
+    sheet.getCell("A1").value = "InsightX AI Analytics Dashboard";
+    titleStyle(sheet.getCell("A1"));
     sheet.getRow(1).height = 28;
 
     // ---------- Section ----------
     sheet.addRow([]);
-    const headerRow = sheet.addRow(["Metric", "Value"]);
-
-    headerStyle(headerRow.getCell(1));
-    headerStyle(headerRow.getCell(2));
+    const hRow = sheet.addRow(["Business Metric", "Value"]);
+    headerStyle(hRow.getCell(1));
+    headerStyle(hRow.getCell(2));
 
     const dashboard = analysis.dashboard || {};
     const overview = dashboard.overview || {};
@@ -27,34 +26,31 @@ module.exports = async (workbook, analysis) => {
     const performance = dashboard.performance || {};
 
     const rows = [
-        ["Total Transactions", overview.totalTransactions || 0],
+        ["Total Volume (Transactions)", overview.totalTransactions || 0],
         ["Successful Transactions", overview.successfulTransactions || 0],
-        ["Failed Transactions", overview.failedTransactions || 0],
-        ["Refunded Transactions", overview.refundedTransactions || 0],
-        ["Total Revenue", revenue.totalRevenue || 0],
-        ["Refund Amount", revenue.refundAmount || 0],
+        ["Successful Refunds", overview.refundedTransactions || 0],
+        ["Gross Revenue", revenue.totalRevenue || 0],
+        ["Refund Amount (Deducted)", revenue.refundAmount || 0],
         ["Net Revenue", revenue.netRevenue || 0],
-        ["Success Rate (%)", performance.successRate || 0],
-        ["Refund Rate (%)", performance.refundRate || 0],
-        ["Top Payment Mode", dashboard.topPaymentMode ? dashboard.topPaymentMode[0] : "-"],
-        ["Top Device", dashboard.topDevice ? dashboard.topDevice[0] : "-"],
-        ["Top Location", dashboard.topLocation ? dashboard.topLocation[0] : "-"],
-        ["Peak Month", dashboard.peakMonth ? dashboard.peakMonth[0] : "-"]
+        ["Success Rate (%)", `${performance.successRate || 0}%`],
+        ["Refund Rate (%)", `${performance.refundRate || 0}%`],
+        ["Top Payment Channel", dashboard.topPaymentMode ? `${dashboard.topPaymentMode[0]} (${dashboard.topPaymentMode[1]} tx)` : "-"],
+        ["Top Platform / Device", dashboard.topDevice ? dashboard.topDevice[0] : "-"],
+        ["Peak Revenue Month", dashboard.peakMonth ? dashboard.peakMonth[0] : "-"]
     ];
 
-    rows.forEach(row => {
-        const addedRow = sheet.addRow(row);
-        const metricName = row[0];
-        
-        if (["Total Revenue", "Refund Amount", "Net Revenue"].includes(metricName)) {
-            addedRow.getCell(2).numFmt = '₹#,##0.00';
+    rows.forEach((r) => {
+        const addedRow = sheet.addRow(r);
+        // Format currency for Gross, Refund Amount, Net Revenue
+        if (r[0] === "Gross Revenue" || r[0] === "Refund Amount (Deducted)" || r[0] === "Net Revenue") {
+            currencyStyle(addedRow.getCell(2));
         }
     });
 
     // ---------- Borders ----------
-    sheet.eachRow((row) => {
-        if (row.hasValues) {
-            row.eachCell({ includeEmpty: false }, (cell) => {
+    sheet.eachRow((r, idx) => {
+        if (idx > 1) {
+            r.eachCell((cell) => {
                 cell.border = {
                     top: { style: "thin" },
                     left: { style: "thin" },

@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || "https://insightx-ai.onrender.com/api",
+    baseURL: "http://localhost:5001/api",
     timeout: 60000
 });
 
@@ -13,4 +13,4 @@ api.interceptors.response.use(
     }
 );
 
-export default api;
+export default api; 

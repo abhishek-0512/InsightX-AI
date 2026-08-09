@@ -5,18 +5,9 @@ exports.parse = async (filePath) => {
         cellDates: true
     });
 
-    let targetSheetName = workbook.SheetNames[0];
+    const sheetName = workbook.SheetNames[0];
 
-    const dataSheetNames = ["Raw Data", "DB_Master_Data", "Transactions", "Data"];
-    
-    for (const name of dataSheetNames) {
-        if (workbook.SheetNames.includes(name)) {
-            targetSheetName = name;
-            break;
-        }
-    }
-
-    const worksheet = workbook.Sheets[targetSheetName];
+    const worksheet = workbook.Sheets[sheetName];
 
     const rows = XLSX.utils.sheet_to_json(worksheet, {
         defval: null,
