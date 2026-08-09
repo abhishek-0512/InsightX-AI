@@ -1,3 +1,4 @@
+import { FaExchangeAlt, FaCheckCircle, FaWallet, FaUndoAlt } from "react-icons/fa";
 import { useAnalysis } from "../context/AnalysisContext";
 
 function KPICards() {
@@ -6,13 +7,13 @@ function KPICards() {
     const analysis = result?.analysis;
     if (!analysis) return null;
 
-    const totalTx = analysis?.payment?.overview?.totalTransactions;
+    const totalTx = analysis?.payment?.overview?.totalTransactions || 0;
     const successTx = analysis?.payment?.overview?.successfulTransactions || 0;
     const failedTx = analysis?.payment?.overview?.failedTransactions || 0;
     const refundedTx = analysis?.payment?.overview?.refundedTransactions || 0;
 
-    const successRate = analysis?.payment?.successRate;
-    const refundRate = analysis?.payment?.refundRate;
+    const successRate = analysis?.payment?.successRate || 0;
+    const refundRate = analysis?.payment?.refundRate || 0;
 
     const grossRevenue = analysis?.payment?.revenue?.totalAmount || 0;
     const refundAmount = analysis?.payment?.revenue?.refundAmount || 0;
@@ -30,12 +31,12 @@ function KPICards() {
         }).format(val);
     };
 
-    let periodLabel = "All Months (Cumulative)";
+    let periodLabel = "Cumulative (All Months)";
     if (activePeriod === "months") {
         if (selectedMonths.length === 1) {
             periodLabel = `Month: ${selectedMonths[0]}`;
         } else if (selectedMonths.length > 1) {
-            periodLabel = `${selectedMonths.length} Months Cumulative`;
+            periodLabel = `${selectedMonths.length} Months Combined`;
         }
     } else if (activePeriod === "1m") {
         periodLabel = "Last 30 Days";
@@ -50,60 +51,88 @@ function KPICards() {
     const cards = [
         {
             title: "Total Transactions",
-            value: totalTx !== undefined ? totalTx.toLocaleString() : "-",
-            sub: `${successTx.toLocaleString()} Successful • ${failedTx.toLocaleString()} Failed`,
-            badge: periodLabel,
-            color: "text-cyan-400"
+            value: totalTx.toLocaleString(),
+            icon: <FaExchangeAlt className="text-cyan-400" size={18} />,
+            iconBg: "bg-cyan-500/10 border-cyan-500/20",
+            textColor: "text-cyan-400",
+            primarySub: `${successTx.toLocaleString()} Successful`,
+            secondarySub: `${failedTx.toLocaleString()} Failed`,
+            badge: periodLabel
         },
         {
             title: "Success Rate",
-            value: successRate !== undefined ? `${successRate}%` : "-",
-            sub: `${successTx.toLocaleString()} successful sales`,
-            badge: `${failedTx.toLocaleString()} failed`,
-            color: "text-emerald-400"
+            value: `${successRate}%`,
+            icon: <FaCheckCircle className="text-emerald-400" size={18} />,
+            iconBg: "bg-emerald-500/10 border-emerald-500/20",
+            textColor: "text-emerald-400",
+            primarySub: `${successTx.toLocaleString()} Completed`,
+            secondarySub: `${((100 - successRate) || 0).toFixed(1)}% drop-off`,
+            badge: "Completed"
         },
         {
-            title: "Net Revenue",
+            title: "Net Realized Revenue",
             value: formatCurrency(netRevenue),
-            sub: `Gross: ${formatCurrency(grossRevenue)}`,
-            badge: "Gross - Refunds",
-            color: "text-cyan-400"
+            icon: <FaWallet className="text-cyan-400" size={18} />,
+            iconBg: "bg-cyan-500/10 border-cyan-500/20",
+            textColor: "text-cyan-400",
+            primarySub: `Gross: ${formatCurrency(grossRevenue)}`,
+            secondarySub: `Refunds: ${formatCurrency(refundAmount)}`,
+            badge: "Gross - Refunds"
         },
         {
             title: "Successful Refunds",
-            value: refundedTx !== undefined ? refundedTx.toLocaleString() : "-",
-            sub: `Amount: ${formatCurrency(refundAmount)} (${refundRate || 0}% rate)`,
-            badge: "Successful Only",
-            color: "text-amber-400"
+            value: refundedTx.toLocaleString(),
+            icon: <FaUndoAlt className="text-amber-400" size={18} />,
+            iconBg: "bg-amber-500/10 border-amber-500/20",
+            textColor: "text-amber-400",
+            primarySub: `Amount: ${formatCurrency(refundAmount)}`,
+            secondarySub: `${refundRate}% refund rate`,
+            badge: "Successful Only"
         }
     ];
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {cards.map((card) => (
-                <div
-                    key={card.title}
-                    className="bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-cyan-500/50 transition shadow-lg relative overflow-hidden group"
-                >
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                        <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">
-                            {card.title}
-                        </p>
-                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                            {card.badge}
-                        </span>
+        <section className="mb-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {cards.map((card, idx) => (
+                    <div
+                        key={idx}
+                        className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 hover:border-cyan-500/40 rounded-3xl p-6 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-cyan-500/10 hover:-translate-y-1 flex flex-col justify-between group"
+                    >
+                        {/* Top Row: Icon + Title + Badge */}
+                        <div>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border ${card.iconBg}`}>
+                                        {card.icon}
+                                    </div>
+                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                                        {card.title}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Main Metric Number */}
+                            <div className="my-2">
+                                <h3 className={`text-3xl lg:text-4xl font-black tracking-tight ${card.textColor}`}>
+                                    {card.value}
+                                </h3>
+                            </div>
+                        </div>
+
+                        {/* Bottom Subtext Row */}
+                        <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                            <span className="font-semibold text-slate-300">
+                                {card.primarySub}
+                            </span>
+                            <span className="text-slate-400 font-medium">
+                                {card.secondarySub}
+                            </span>
+                        </div>
                     </div>
-
-                    <h2 className={`text-3xl font-extrabold mt-2 ${card.color}`}>
-                        {card.value}
-                    </h2>
-
-                    <p className="text-xs text-slate-400 mt-2 font-medium">
-                        {card.sub}
-                    </p>
-                </div>
-            ))}
-        </div>
+                ))}
+            </div>
+        </section>
     );
 }
 

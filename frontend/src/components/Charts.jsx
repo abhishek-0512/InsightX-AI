@@ -19,8 +19,8 @@ const COLORS = [
     "#3b82f6",
     "#10b981",
     "#f59e0b",
-    "#ef4444",
     "#8b5cf6",
+    "#ec4899",
     "#14b8a6",
     "#f97316"
 ];
@@ -28,18 +28,20 @@ const COLORS = [
 function CustomTooltip({ active, payload, label }) {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-slate-900 border border-slate-700 p-3.5 rounded-xl shadow-2xl text-xs text-slate-200 min-w-[160px]">
-                <p className="font-bold text-white mb-2 pb-1 border-b border-slate-800">{label || payload[0].name}</p>
+            <div className="bg-slate-950 border border-slate-700/80 p-4 rounded-2xl shadow-2xl text-xs text-slate-200 min-w-[180px]">
+                <p className="font-bold text-white mb-2 pb-1.5 border-b border-slate-800 text-sm">
+                    {label || payload[0].name}
+                </p>
                 {payload.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between gap-3 my-1">
-                        <span className="flex items-center gap-1.5" style={{ color: item.color || item.fill }}>
-                            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: item.color || item.fill }}></span>
+                    <div key={idx} className="flex items-center justify-between gap-3 my-1.5">
+                        <span className="flex items-center gap-2 font-medium" style={{ color: item.color || item.fill }}>
+                            <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: item.color || item.fill }}></span>
                             {item.name || item.dataKey}:
                         </span>
-                        <strong className="text-white font-mono">
+                        <strong className="text-white font-mono text-xs font-bold">
                             {typeof item.value === "number" && (item.dataKey?.includes("revenue") || item.dataKey?.includes("Amount") || item.dataKey?.includes("Revenue") || item.dataKey === "netRevenue" || item.dataKey === "grossRevenue" || item.dataKey === "refundAmount")
-                                ? `₹${item.value.toLocaleString()}`
-                                : item.value}
+                                ? `₹${item.value.toLocaleString("en-IN")}`
+                                : item.value?.toLocaleString?.() || item.value}
                         </strong>
                     </div>
                 ))}
@@ -101,88 +103,92 @@ function Charts() {
     if (showMonthlyChart) {
         chartTitle =
             activePeriod === "months"
-                ? `Selected Months Comparison (${selectedMonths.join(" & ")})`
-                : "Monthly Net Revenue & Transactions";
-        chartSub = "Side-by-side cumulative performance comparison";
+                ? `Comparison: ${selectedMonths.join(" + ")}`
+                : "Monthly Net Revenue & Trends";
+        chartSub = "Side-by-side performance across selected billing periods";
     } else if (activePeriod === "months" && selectedMonths.length === 1) {
-        chartTitle = `${selectedMonths[0]} - Daily Revenue Trend`;
-        chartSub = `Daily revenue & transaction velocity across ${selectedMonths[0]}`;
+        chartTitle = `${selectedMonths[0]} — Daily Revenue Trend`;
+        chartSub = `Day-by-day revenue velocity across ${selectedMonths[0]}`;
     } else if (cumulativeMonthlyList.length === 1) {
-        chartTitle = `${cumulativeMonthlyList[0].month} - Daily Revenue Trend`;
-        chartSub = `Daily revenue & transaction velocity across ${cumulativeMonthlyList[0].month}`;
+        chartTitle = `${cumulativeMonthlyList[0].month} — Daily Revenue Trend`;
+        chartSub = `Day-by-day revenue velocity across ${cumulativeMonthlyList[0].month}`;
     }
 
     return (
-        <div className="grid lg:grid-cols-2 gap-6 mb-8">
+        <section className="grid lg:grid-cols-2 gap-8 mb-10">
             {/* Payment Mode Distribution */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                <div className="flex items-center justify-between mb-6">
+            <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col justify-between">
+                <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
                     <div>
-                        <h2 className="text-lg font-bold text-white">Payment Mode Distribution</h2>
-                        <p className="text-xs text-slate-400">Transaction count by gateway / method</p>
+                        <h2 className="text-xl font-extrabold text-white tracking-tight">Payment Channel Distribution</h2>
+                        <p className="text-xs text-slate-400 font-medium mt-0.5">Transaction share by payment gateway / channel</p>
                     </div>
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-cyan-400 border border-slate-700">
-                        {paymentData.length} Modes
+                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                        {paymentData.length} Channels
                     </span>
                 </div>
 
-                <ResponsiveContainer width="100%" height={320}>
-                    <PieChart>
-                        <Pie
-                            data={paymentData}
-                            dataKey="value"
-                            outerRadius={105}
-                            innerRadius={45}
-                            paddingAngle={3}
-                            label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                        >
-                            {paymentData.map((_, index) => (
-                                <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }} />
-                    </PieChart>
-                </ResponsiveContainer>
+                <div className="w-full h-[340px] flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={paymentData}
+                                dataKey="value"
+                                outerRadius={115}
+                                innerRadius={55}
+                                paddingAngle={4}
+                                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                            >
+                                {paymentData.map((_, index) => (
+                                    <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "14px" }} />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
 
             {/* Revenue Trend (Monthly/Daily) */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                <div className="flex items-center justify-between mb-6">
+            <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col justify-between">
+                <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
                     <div>
-                        <h2 className="text-lg font-bold text-white">{chartTitle}</h2>
-                        <p className="text-xs text-slate-400">{chartSub}</p>
+                        <h2 className="text-xl font-extrabold text-white tracking-tight">{chartTitle}</h2>
+                        <p className="text-xs text-slate-400 font-medium mt-0.5">{chartSub}</p>
                     </div>
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-emerald-400 border border-slate-700">
-                        Revenue (₹)
+                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                        Settled (₹)
                     </span>
                 </div>
 
-                <ResponsiveContainer width="100%" height={320}>
-                    <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.4} />
-                        <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                        <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }} />
-                        <Bar
-                            dataKey="netRevenue"
-                            name="Net Revenue (₹)"
-                            fill="#06b6d4"
-                            radius={[6, 6, 0, 0]}
-                        />
-                        {showMonthlyChart && (
+                <div className="w-full h-[340px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                            <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                            <YAxis stroke="#94a3b8" tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "14px" }} />
                             <Bar
-                                dataKey="refundAmount"
-                                name="Refund Amount (₹)"
-                                fill="#f59e0b"
-                                radius={[6, 6, 0, 0]}
+                                dataKey="netRevenue"
+                                name="Net Revenue (₹)"
+                                fill="#06b6d4"
+                                radius={[8, 8, 0, 0]}
                             />
-                        )}
-                    </BarChart>
-                </ResponsiveContainer>
+                            {showMonthlyChart && (
+                                <Bar
+                                    dataKey="refundAmount"
+                                    name="Refund Amount (₹)"
+                                    fill="#f59e0b"
+                                    radius={[8, 8, 0, 0]}
+                                />
+                            )}
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
-        </div>
+        </section>
     );
 }
 

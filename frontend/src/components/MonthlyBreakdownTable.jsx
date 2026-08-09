@@ -6,7 +6,7 @@ function formatCurrency(val) {
     return new Intl.NumberFormat("en-IN", {
         style: "currency",
         currency: "INR",
-        maximumFractionDigits: 0
+        maximumFractionDigits: 2
     }).format(val);
 }
 
@@ -47,24 +47,26 @@ function MonthlyBreakdownTable() {
     const cumulativeSuccessRate = totalTx > 0 ? Number(((totalSuccess / totalTx) * 100).toFixed(2)) : 0;
 
     return (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8 shadow-xl">
+        <section className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 mb-10 shadow-2xl overflow-hidden">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 rounded-xl text-cyan-400">
-                        <FaChartLine size={22} />
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+                <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-md">
+                        <FaChartLine size={20} />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            {isSingleMonth ? "Monthly Dataset Performance" : "Month-by-Month Performance & Comparison"}
-                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                        <div className="flex items-center gap-2.5">
+                            <h2 className="text-xl font-extrabold text-white tracking-tight">
+                                {isSingleMonth ? "Monthly Performance Summary" : "Month-by-Month Financial Performance"}
+                            </h2>
+                            <span className="text-xs font-bold px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
                                 {isSingleMonth ? `${monthlyList[0].month}` : `${monthlyList.length} Months Detected`}
                             </span>
-                        </h2>
-                        <p className="text-xs text-slate-400">
+                        </div>
+                        <p className="text-xs text-slate-400 font-medium mt-0.5">
                             {isSingleMonth
-                                ? `Complete cumulative metrics for ${monthlyList[0].month}`
-                                : "Select any single month, combine multiple months together, or view full cumulative totals"}
+                                ? `Complete reconciled financial metrics for ${monthlyList[0].month}`
+                                : "Select any single month to filter, or check multiple months to combine them together"}
                         </p>
                     </div>
                 </div>
@@ -72,35 +74,35 @@ function MonthlyBreakdownTable() {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={selectCumulative}
-                        className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition border ${
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition border cursor-pointer ${
                             activePeriod === "all"
-                                ? "bg-cyan-500 text-white border-cyan-400 shadow-md shadow-cyan-500/20"
-                                : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 hover:text-white"
+                                ? "bg-cyan-500 text-white border-cyan-400 shadow-lg shadow-cyan-500/25"
+                                : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-800"
                         }`}
                     >
-                        {isSingleMonth ? "Full Month View" : "All Months Combined"}
+                        {isSingleMonth ? "View All Data" : "All Months Combined"}
                     </button>
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto">
+            {/* Table Container */}
+            <div className="overflow-x-auto mt-6 rounded-2xl border border-slate-800 bg-slate-950/60">
                 <table className="w-full text-left text-sm text-slate-300">
-                    <thead className="bg-slate-950/80 text-xs font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-800">
+                    <thead className="bg-slate-950 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
                         <tr>
-                            <th className="py-3 px-4">Month</th>
-                            <th className="py-3 px-3 text-right">Total Tx</th>
-                            <th className="py-3 px-3 text-right">Successful</th>
-                            <th className="py-3 px-3 text-right">Failed</th>
-                            <th className="py-3 px-3 text-right">Successful Refunds</th>
-                            <th className="py-3 px-3 text-right">Refund Amount</th>
-                            <th className="py-3 px-3 text-right">Gross Revenue</th>
-                            <th className="py-3 px-3 text-right">Net Revenue</th>
-                            <th className="py-3 px-3 text-center">Success Rate</th>
-                            <th className="py-3 px-4 text-center">Action</th>
+                            <th className="py-4 px-5">Billing Month</th>
+                            <th className="py-4 px-4 text-right">Total Volume</th>
+                            <th className="py-4 px-4 text-right">Successful Tx</th>
+                            <th className="py-4 px-4 text-right">Failed Tx</th>
+                            <th className="py-4 px-4 text-right">Refunds</th>
+                            <th className="py-4 px-4 text-right">Refund Deductions</th>
+                            <th className="py-4 px-4 text-right">Gross Revenue</th>
+                            <th className="py-4 px-5 text-right text-cyan-400 font-extrabold">Net Realized Revenue</th>
+                            <th className="py-4 px-4 text-center">Success Rate</th>
+                            <th className="py-4 px-5 text-center">Action</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-medium">
+                    <tbody className="divide-y divide-slate-800/80 font-medium">
                         {monthlyList.map((m) => {
                             const isSelected =
                                 activePeriod === "all" ||
@@ -116,78 +118,97 @@ function MonthlyBreakdownTable() {
                                     key={m.month}
                                     className={`transition duration-150 ${
                                         isSingleActive
-                                            ? "bg-cyan-950/40 border-l-4 border-l-cyan-400"
+                                            ? "bg-cyan-950/50 border-l-4 border-l-cyan-400"
                                             : isSelected && activePeriod === "months"
                                             ? "bg-cyan-950/20"
-                                            : "hover:bg-slate-800/40"
+                                            : "hover:bg-slate-900/60"
                                     }`}
                                 >
-                                    <td className="py-3.5 px-4 font-bold text-white flex items-center gap-2">
+                                    {/* Month Name & Toggle */}
+                                    <td className="py-4 px-5 font-bold text-white flex items-center gap-3">
                                         {!isSingleMonth && (
                                             <button
                                                 onClick={() => toggleMonth(m.month)}
-                                                className="text-slate-400 hover:text-cyan-400 transition"
-                                                title="Toggle month in cumulative combination"
+                                                className="text-slate-500 hover:text-cyan-400 transition cursor-pointer"
+                                                title="Check to combine in multi-month analysis"
                                             >
                                                 {isSelected && activePeriod === "months" ? (
-                                                    <FaCheckSquare className="text-cyan-400" size={14} />
+                                                    <FaCheckSquare className="text-cyan-400" size={16} />
                                                 ) : (
-                                                    <FaSquare className="text-slate-600" size={14} />
+                                                    <FaSquare className="text-slate-700" size={16} />
                                                 )}
                                             </button>
                                         )}
                                         <FaCalendarAlt className="text-cyan-400 text-xs" />
-                                        <span>{m.month}</span>
+                                        <span className="text-sm">{m.month}</span>
                                         {isSingleActive && (
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30">
-                                                Active
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+                                                Active View
                                             </span>
                                         )}
                                     </td>
-                                    <td className="py-3.5 px-3 text-right font-mono text-slate-200">
+
+                                    {/* Total Transactions */}
+                                    <td className="py-4 px-4 text-right font-mono text-slate-200">
                                         {m.transactions.toLocaleString()}
                                     </td>
-                                    <td className="py-3.5 px-3 text-right font-mono text-emerald-400">
+
+                                    {/* Successful Transactions */}
+                                    <td className="py-4 px-4 text-right font-mono text-emerald-400 font-semibold">
                                         {m.successfulTransactions.toLocaleString()}
                                     </td>
-                                    <td className="py-3.5 px-3 text-right font-mono text-rose-400">
+
+                                    {/* Failed Transactions */}
+                                    <td className="py-4 px-4 text-right font-mono text-slate-400">
                                         {m.failedTransactions.toLocaleString()}
                                     </td>
-                                    <td className="py-3.5 px-3 text-right font-mono text-amber-400">
+
+                                    {/* Successful Refunds */}
+                                    <td className="py-4 px-4 text-right font-mono text-amber-400">
                                         {m.refundedTransactions.toLocaleString()}
                                     </td>
-                                    <td className="py-3.5 px-3 text-right font-mono text-amber-300">
+
+                                    {/* Refund Amount */}
+                                    <td className="py-4 px-4 text-right font-mono text-amber-300">
                                         {formatCurrency(m.refundAmount)}
                                     </td>
-                                    <td className="py-3.5 px-3 text-right font-mono text-slate-200">
+
+                                    {/* Gross Revenue */}
+                                    <td className="py-4 px-4 text-right font-mono text-slate-200">
                                         {formatCurrency(m.grossAmount)}
                                     </td>
-                                    <td className="py-3.5 px-3 text-right font-mono font-bold text-cyan-400">
+
+                                    {/* Net Revenue */}
+                                    <td className="py-4 px-5 text-right font-mono font-black text-cyan-400 text-base">
                                         {formatCurrency(m.netAmount)}
                                     </td>
-                                    <td className="py-3.5 px-3 text-center">
+
+                                    {/* Success Rate */}
+                                    <td className="py-4 px-4 text-center">
                                         <span
-                                            className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
+                                            className={`inline-block px-3 py-1 rounded-full text-xs font-extrabold ${
                                                 m.successRate >= 80
-                                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
                                                     : m.successRate >= 50
-                                                    ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                                                    : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                                                    ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                                                    : "bg-rose-500/15 text-rose-400 border border-rose-500/30"
                                             }`}
                                         >
                                             {m.successRate}%
                                         </span>
                                     </td>
-                                    <td className="py-3.5 px-4 text-center">
+
+                                    {/* Action Button */}
+                                    <td className="py-4 px-5 text-center">
                                         <button
                                             onClick={() => selectSingleMonth(m.month)}
-                                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                                            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                                                 isSingleActive
-                                                    ? "bg-cyan-500 text-white shadow"
-                                                    : "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700"
+                                                    ? "bg-cyan-500 text-white shadow-md shadow-cyan-500/20 ring-1 ring-cyan-300/40"
+                                                    : "bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700"
                                             }`}
                                         >
-                                            <span>{isSingleActive ? "Viewing" : "Analyze"}</span>
+                                            <span>{isSingleActive ? "Active" : "Inspect"}</span>
                                             <FaArrowRight size={10} />
                                         </button>
                                     </td>
@@ -198,42 +219,42 @@ function MonthlyBreakdownTable() {
                         {/* Cumulative Total Row */}
                         {!isSingleMonth && (
                             <tr className="bg-slate-950 font-bold text-white border-t-2 border-slate-700">
-                                <td className="py-4 px-4 uppercase tracking-wider text-xs text-cyan-400 flex items-center gap-2">
-                                    <span>All Months Combined Total</span>
+                                <td className="py-4 px-5 uppercase tracking-wider text-xs text-cyan-400 flex items-center gap-2">
+                                    <span>All Months Total</span>
                                 </td>
-                                <td className="py-4 px-3 text-right font-mono text-cyan-300">
+                                <td className="py-4 px-4 text-right font-mono text-cyan-300">
                                     {totalTx.toLocaleString()}
                                 </td>
-                                <td className="py-4 px-3 text-right font-mono text-emerald-400">
+                                <td className="py-4 px-4 text-right font-mono text-emerald-400">
                                     {totalSuccess.toLocaleString()}
                                 </td>
-                                <td className="py-4 px-3 text-right font-mono text-rose-400">
+                                <td className="py-4 px-4 text-right font-mono text-slate-400">
                                     {totalFailed.toLocaleString()}
                                 </td>
-                                <td className="py-4 px-3 text-right font-mono text-amber-400">
+                                <td className="py-4 px-4 text-right font-mono text-amber-400">
                                     {totalRefunds.toLocaleString()}
                                 </td>
-                                <td className="py-4 px-3 text-right font-mono text-amber-300">
+                                <td className="py-4 px-4 text-right font-mono text-amber-300">
                                     {formatCurrency(totalRefundAmount)}
                                 </td>
-                                <td className="py-4 px-3 text-right font-mono text-slate-100">
+                                <td className="py-4 px-4 text-right font-mono text-slate-100">
                                     {formatCurrency(totalGross)}
                                 </td>
-                                <td className="py-4 px-3 text-right font-mono text-cyan-400 text-base">
+                                <td className="py-4 px-5 text-right font-mono text-cyan-400 text-lg font-black">
                                     {formatCurrency(totalNet)}
                                 </td>
-                                <td className="py-4 px-3 text-center">
-                                    <span className="inline-block px-3 py-1 rounded-full text-xs font-extrabold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                                <td className="py-4 px-4 text-center">
+                                    <span className="inline-block px-3 py-1 rounded-full text-xs font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
                                         {cumulativeSuccessRate}%
                                     </span>
                                 </td>
-                                <td className="py-4 px-4 text-center">
+                                <td className="py-4 px-5 text-center">
                                     {activePeriod !== "all" && (
                                         <button
                                             onClick={selectCumulative}
-                                            className="text-xs text-cyan-400 hover:underline font-semibold"
+                                            className="text-xs text-cyan-400 hover:underline font-bold cursor-pointer"
                                         >
-                                            View All
+                                            Reset View
                                         </button>
                                     )}
                                 </td>
@@ -242,7 +263,7 @@ function MonthlyBreakdownTable() {
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
     );
 }
 

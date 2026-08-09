@@ -36,13 +36,12 @@ function DateFilterBar() {
         setActivePeriod("custom");
     };
 
-    // Label for the active view
     let activeViewLabel = "Cumulative (All Months)";
     if (activePeriod === "months") {
         if (selectedMonths.length === 1) {
             activeViewLabel = `Single Month: ${selectedMonths[0]}`;
         } else if (selectedMonths.length > 1) {
-            activeViewLabel = `Cumulative (${selectedMonths.length} Months): ${selectedMonths.join(" + ")}`;
+            activeViewLabel = `${selectedMonths.length} Months: ${selectedMonths.join(" + ")}`;
         }
     } else if (activePeriod === "1m") {
         activeViewLabel = "Last 30 Days";
@@ -51,36 +50,36 @@ function DateFilterBar() {
     } else if (activePeriod === "6m") {
         activeViewLabel = "Last 6 Months";
     } else if (activePeriod === "custom") {
-        activeViewLabel = `Custom Range (${customRange.startDate || "Start"} to ${customRange.endDate || "End"})`;
+        activeViewLabel = `Custom Range: ${customRange.startDate || "Start"} to ${customRange.endDate || "End"}`;
     }
 
     return (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8 shadow-xl">
-            {/* Top Bar Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400">
+        <section className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 mb-10 shadow-2xl">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+                <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-md">
                         <FaLayerGroup size={20} />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
                             Dataset View & Multi-Month Analyzer
                         </h2>
-                        <p className="text-xs text-slate-400">
-                            Analyze any single month, any combination of multiple months (e.g. May + July), or all months cumulatively
+                        <p className="text-xs text-slate-400 font-medium">
+                            Select any single month, combine multiple months together, or view full cumulative analytics
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-950 text-cyan-400 border border-cyan-500/30">
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="px-3.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-xs font-bold text-cyan-300">
                         {activeViewLabel}
-                    </span>
+                    </div>
 
                     {activePeriod !== "all" && (
                         <button
                             onClick={resetFilter}
-                            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition border border-slate-700 shadow"
+                            className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition border border-slate-700 shadow cursor-pointer"
                         >
                             <FaRedo size={11} /> Reset All
                         </button>
@@ -88,36 +87,34 @@ function DateFilterBar() {
                 </div>
             </div>
 
-            {/* Monthly Selection Row */}
+            {/* Month Selection Buttons */}
             {availableMonths.length > 0 && (
-                <div className="mb-5">
-                    <div className="flex items-center justify-between mb-2.5">
-                        <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <div className="py-6 border-b border-slate-800/80">
+                    <div className="flex items-center justify-between mb-3.5">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
                             <FaCalendarAlt className="text-cyan-400" />
                             <span>Select Month(s) to Analyze Cumulatively:</span>
-                        </div>
-                        <div className="text-[11px] text-slate-500 font-medium">
-                            Tip: Click multiple months to combine them together
-                        </div>
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+                            Tip: Check multiple months to combine them together
+                        </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 p-2 bg-slate-950 rounded-xl border border-slate-800">
-                        {/* All Months Cumulative Button */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* All Months Button */}
                         <button
                             onClick={selectCumulative}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                            className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
                                 activePeriod === "all"
-                                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20"
-                                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25 ring-2 ring-cyan-400/30"
+                                    : "bg-slate-950 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800"
                             }`}
                         >
-                            <FaLayerGroup size={12} />
+                            <FaLayerGroup size={13} />
                             <span>All Months Combined</span>
                         </button>
 
-                        <div className="h-6 w-[1px] bg-slate-800 mx-1 hidden sm:block"></div>
-
-                        {/* Interactive Month Pills with Multi-Select Toggles */}
+                        {/* Month Pills */}
                         {availableMonths.map((m) => {
                             const isSelected =
                                 activePeriod === "all" ||
@@ -132,18 +129,18 @@ function DateFilterBar() {
                                 <button
                                     key={m}
                                     onClick={() => toggleMonth(m)}
-                                    className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 border ${
+                                    className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2.5 border cursor-pointer ${
                                         isSingleActive
-                                            ? "bg-cyan-500 text-white border-cyan-400 shadow-md shadow-cyan-500/20"
+                                            ? "bg-cyan-500 text-white border-cyan-400 shadow-lg shadow-cyan-500/25 ring-2 ring-cyan-300/30"
                                             : isSelected && activePeriod === "months"
-                                            ? "bg-cyan-950/80 text-cyan-300 border-cyan-500/50"
-                                            : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700"
+                                            ? "bg-cyan-950/80 text-cyan-300 border-cyan-500/60 shadow-md shadow-cyan-500/10"
+                                            : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700 hover:bg-slate-900"
                                     }`}
                                 >
                                     {isSelected && activePeriod === "months" ? (
-                                        <FaCheckSquare className="text-cyan-400" size={13} />
+                                        <FaCheckSquare className="text-cyan-400" size={14} />
                                     ) : (
-                                        <FaSquare className="text-slate-600" size={13} />
+                                        <FaSquare className="text-slate-600" size={14} />
                                     )}
                                     <span>{m}</span>
                                 </button>
@@ -153,64 +150,64 @@ function DateFilterBar() {
                 </div>
             )}
 
-            {/* Quick Presets & Custom Range */}
-            <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-800/60">
+            {/* Range Presets & Custom Range */}
+            <div className="pt-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
                 {/* Presets */}
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-slate-500 font-semibold mr-1">RANGE PRESETS:</span>
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2">Presets:</span>
                     <button
                         onClick={() => handlePresetClick("1m")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                        className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer border ${
                             activePeriod === "1m"
-                                ? "bg-slate-800 text-cyan-400 border border-cyan-500/50"
-                                : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                                ? "bg-slate-800 text-cyan-400 border-cyan-500/50 shadow"
+                                : "bg-slate-950 text-slate-400 hover:text-white border-slate-800 hover:bg-slate-900"
                         }`}
                     >
                         Last 30 Days
                     </button>
                     <button
                         onClick={() => handlePresetClick("3m")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                        className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer border ${
                             activePeriod === "3m"
-                                ? "bg-slate-800 text-cyan-400 border border-cyan-500/50"
-                                : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                                ? "bg-slate-800 text-cyan-400 border-cyan-500/50 shadow"
+                                : "bg-slate-950 text-slate-400 hover:text-white border-slate-800 hover:bg-slate-900"
                         }`}
                     >
                         Last 90 Days
                     </button>
                     <button
                         onClick={() => handlePresetClick("6m")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                        className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer border ${
                             activePeriod === "6m"
-                                ? "bg-slate-800 text-cyan-400 border border-cyan-500/50"
-                                : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                                ? "bg-slate-800 text-cyan-400 border-cyan-500/50 shadow"
+                                : "bg-slate-950 text-slate-400 hover:text-white border-slate-800 hover:bg-slate-900"
                         }`}
                     >
                         Last 6 Months
                     </button>
                 </div>
 
-                {/* Custom Date Inputs & Summary Badge */}
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
-                        <span className="text-xs text-slate-400 font-medium">Custom:</span>
+                {/* Custom Date Inputs & Summary Count */}
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2 bg-slate-950 px-4 py-2 rounded-2xl border border-slate-800">
+                        <span className="text-xs text-slate-400 font-semibold">Custom:</span>
                         <input
                             type="date"
                             value={customRange.startDate}
                             onChange={(e) => handleCustomChange("startDate", e.target.value)}
-                            className="bg-transparent text-slate-200 text-xs focus:outline-none"
+                            className="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
                         />
-                        <span className="text-slate-600 text-xs">-</span>
+                        <span className="text-slate-600 text-xs font-bold">to</span>
                         <input
                             type="date"
                             value={customRange.endDate}
                             onChange={(e) => handleCustomChange("endDate", e.target.value)}
-                            className="bg-transparent text-slate-200 text-xs focus:outline-none"
+                            className="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
                         />
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs text-slate-300 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800">
-                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                    <div className="flex items-center gap-2 text-xs text-slate-300 bg-slate-950 px-4 py-2 rounded-2xl border border-slate-800">
+                        <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
                         <span>
                             Showing <strong className="text-cyan-400">{filteredCount.toLocaleString()}</strong> of{" "}
                             <strong className="text-slate-300">{totalCount.toLocaleString()}</strong> records ({percentage}%)
@@ -218,7 +215,7 @@ function DateFilterBar() {
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
     );
 }
 
