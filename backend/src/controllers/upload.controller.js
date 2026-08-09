@@ -7,7 +7,6 @@ const { importDataset } = require("../config/db");
 
 exports.uploadFile = async (req, res) => {
     try {
-
         if (!req.file) {
             return res.status(400).json({
                 success: false,
@@ -45,22 +44,22 @@ exports.uploadFile = async (req, res) => {
             analysis
         });
 
+        const reportFileName = path.basename(reportPath);
+
         return res.status(200).json({
             success: true,
             message: "Dataset analyzed successfully.",
-            reportPath: reportPath.replace(/\\/g, "/"),
+            reportPath: `/reports/${reportFileName}`,
+            reportFileName,
+            fileName: req.file.originalname,
             analysis,
             rows: parsed.rows
         });
-
     } catch (error) {
-
-        console.error(error);
-
+        console.error("Upload controller error:", error);
         return res.status(500).json({
             success: false,
             message: error.message
         });
-
     }
 };
