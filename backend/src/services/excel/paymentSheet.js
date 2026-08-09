@@ -1,75 +1,102 @@
 const {
-    applySheetTitle,
-    applySectionHeader,
-    applyTableHeaders,
-    applyZebraStriping,
-    applyTotalRowStyle,
-    currencyStyle,
-    numberStyle,
+    titleStyle,
+    headerStyle,
     autoFitColumns
 } = require("./styles");
 
 module.exports = async (workbook, analysis) => {
     const sheet = workbook.addWorksheet("Payment Analytics");
 
-    // ---------- Sheet Title Banner ----------
-    applySheetTitle(
-        sheet,
-        "Payment Channel & Revenue Distribution Analysis",
-        "Detailed performance by payment gateway, settlement method, and revenue share",
-        4
-    );
+    // ---------- Title ----------
+    sheet.mergeCells("A1:C1");
+    const titleCell = sheet.getCell("A1");
+    titleCell.value = "Payment Analytics";
+    titleStyle(titleCell);
 
+    // ---------- Payment Mode Summary ----------
     sheet.addRow([]);
+    const headerRow = sheet.addRow(["Payment Mode", "Transactions"]);
 
-    // ---------- 1. Payment Mode Breakdown ----------
-    let currRow = 4;
-    applySectionHeader(sheet, currRow, "1. PAYMENT MODE VOLUME & SHARE", 4);
+    headerStyle(headerRow.getCell(1));
+    headerStyle(headerRow.getCell(2));
 
-    const modeHeader = sheet.addRow(["Payment Channel", "Transaction Volume", "Volume Share (%)", "Status"]);
-    applyTableHeaders(modeHeader, ["Payment Channel", "Transaction Volume", "Volume Share (%)", "Status"]);
-
-    const startRow = sheet.lastRow.number + 1;
     const paymentModes = analysis.payment?.paymentModes || {};
-    const totalTransactions = analysis.payment?.overview?.totalTransactions || 1;
 
-    let totalModeCount = 0;
     Object.entries(paymentModes).forEach(([mode, count]) => {
-        totalModeCount += count;
-        const share = Number(((count / totalTransactions) * 100).toFixed(2));
-        const row = sheet.addRow([mode, count, `${share}%`, "Active"]);
-        numberStyle(row.getCell(2));
+        sheet.addRow([mode, count]);
     });
 
-    applyZebraStriping(sheet, startRow, sheet.lastRow.number);
+    // ---------- Revenue ----------
+    let rowNumber = sheet.lastRow.number + 2;
 
-    // Total Row
-    const modeTotalRow = sheet.addRow(["Total All Channels", totalModeCount, "100.00%", ""]);
-    numberStyle(modeTotalRow.getCell(2));
-    applyTotalRowStyle(modeTotalRow, 4);
+    const revenueHeader = sheet.getCell(`A${rowNumber}`);
+    revenueHeader.value = "Revenue Summary";
+    headerStyle(revenueHeader);
 
-    // ---------- 2. Revenue Summary ----------
-    sheet.addRow([]);
-    currRow = sheet.lastRow.number + 1;
-    applySectionHeader(sheet, currRow, "2. FINANCIAL REVENUE RECONCILIATION", 4);
+    const totalRevRow = sheet.addRow([
+        "Gross Revenue",
+        analysis.payment?.revenue?.totalAmount || 0
+    ]);
 
-    const revHeader = sheet.addRow(["Financial Component", "Amount (₹)", "Description", ""]);
-    applyTableHeaders(revHeader, ["Financial Component", "Amount (₹)", "Description", ""]);
+    const refundRevRow = sheet.addRow([
+        "Refund Deductions",
+        analysis.payment?.revenue?.refundAmount || 0
+    ]);
 
-    const revStartRow = sheet.lastRow.number + 1;
+    const netRevRow = sheet.addRow([
+        "Net Revenue",
+        analysis.payment?.revenue?.netAmount || 0
+    ]);
 
-    const r1 = sheet.addRow(["Gross Revenue (Sales)", analysis.payment?.revenue?.totalAmount || 0, "Total settled customer sales", ""]);
-    const r2 = sheet.addRow(["Less: Refund Deductions", analysis.payment?.revenue?.refundAmount || 0, "Verified successful customer refunds", ""]);
-    const r3 = sheet.addRow(["Net Realized Revenue", analysis.payment?.revenue?.netAmount || 0, "Net settled amount to merchant account", ""]);
+    totalRevRow.getCell(2).numFmt = "₹#,##0.00";
+    refundRevRow.getCell(2).numFmt = "₹#,##0.00";
+    netRevRow.getCell(2).numFmt = "₹#,##0.00";
 
-    currencyStyle(r1.getCell(2));
-    currencyStyle(r2.getCell(2));
-    currencyStyle(r3.getCell(2));
+    // ---------- Success / Failure ----------
+    rowNumber = sheet.lastRow.number + 2;
 
-    applyZebraStriping(sheet, revStartRow, sheet.lastRow.number);
+    const transactionHeader = sheet.getCell(`A${rowNumber}`);
+    transactionHeader.value = "Transaction Summary";
+    headerStyle(transactionHeader);
 
-    // Highlight Net Realized Revenue
-    applyTotalRowStyle(r3, 4);
+    sheet.addRow([
+        "Successful",
+        analysis.payment?.overview?.successfulTransactions || 0
+    ]);
+
+    sheet.addRow([
+        "Failed",
+        analysis.payment?.overview?.failedTransactions || 0
+    ]);
+
+    sheet.addRow([
+        "Successful Refunds",
+        analysis.payment?.overview?.refundedTransactions || 0
+    ]);
+
+    sheet.addRow([
+        "Success Rate (%)",
+        analysis.payment?.successRate || 0
+    ]);
+
+    sheet.addRow([
+        "Refund Rate (%)",
+        analysis.payment?.refundRate || 0
+    ]);
+
+    // ---------- Borders ----------
+    sheet.eachRow((r) => {
+        if (r.hasValues) {
+            r.eachCell({ includeEmpty: false }, (cell) => {
+                cell.border = {
+                    top: { style: "thin" },
+                    left: { style: "thin" },
+                    bottom: { style: "thin" },
+                    right: { style: "thin" }
+                };
+            });
+        }
+    });
 
     autoFitColumns(sheet);
 };

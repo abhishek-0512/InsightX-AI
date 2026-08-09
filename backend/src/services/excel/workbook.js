@@ -3,7 +3,6 @@ const path = require("path");
 const fs = require("fs");
 
 const addExecutiveSheet = require("./executiveSheet");
-const addMonthlySheet = require("./monthlySheet");
 const addDashboardSheet = require("./dashboardSheet");
 const addPaymentSheet = require("./paymentSheet");
 const addCharts = require("./charts");
@@ -29,16 +28,9 @@ exports.generateWorkbook = async ({
     workbook.modified = new Date();
 
     // ====================================================
-    // Executive Summary (First Sheet)
+    // Executive Summary
     // ====================================================
     await addExecutiveSheet(workbook, analysis);
-
-    // ====================================================
-    // Monthly Breakdown Sheet (NEW)
-    // ====================================================
-    if (analysis.monthly?.available) {
-        await addMonthlySheet(workbook, analysis);
-    }
 
     // ====================================================
     // Dashboard
@@ -46,16 +38,16 @@ exports.generateWorkbook = async ({
     await addDashboardSheet(workbook, analysis);
 
     // ====================================================
-    // Payment Report
+    // Payment Analytics
     // ====================================================
     await addPaymentSheet(workbook, analysis);
 
     // ====================================================
-    // Raw Dataset
+    // Raw Data
     // ====================================================
     const rawSheet = workbook.addWorksheet("Raw Data");
 
-    if (rows && rows.length) {
+    if (rows && rows.length > 0) {
         rawSheet.columns = Object.keys(rows[0]).map((header) => ({
             header,
             key: header,
@@ -67,6 +59,15 @@ exports.generateWorkbook = async ({
             size: 12
         };
 
+        rawSheet.views = [
+            { state: "frozen", xSplit: 0, ySplit: 1 }
+        ];
+
+        rawSheet.autoFilter = {
+            from: { row: 1, column: 1 },
+            to: { row: 1, column: rawSheet.columns.length }
+        };
+
         rows.forEach((row) => rawSheet.addRow(row));
     }
 
@@ -76,7 +77,7 @@ exports.generateWorkbook = async ({
     await addCharts(workbook, analysis);
 
     // ====================================================
-    // Save Report
+    // Save Workbook
     // ====================================================
     const reportName = `${Date.now()}-${path.parse(fileName).name}.xlsx`;
     const reportPath = path.join(REPORT_DIR, reportName);

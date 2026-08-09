@@ -1,86 +1,69 @@
 const {
-    applySheetTitle,
-    applySectionHeader,
-    applyTableHeaders,
-    applyZebraStriping,
-    currencyStyle,
-    numberStyle,
+    titleStyle,
+    headerStyle,
     autoFitColumns
 } = require("./styles");
 
 module.exports = async (workbook, analysis) => {
     const sheet = workbook.addWorksheet("Dashboard");
 
-    // ---------- Title Banner ----------
-    applySheetTitle(
-        sheet,
-        "InsightX AI — Business & Financial Dashboard",
-        "High-level operational and financial summary metrics",
-        4
-    );
+    // ---------- Title ----------
+    sheet.mergeCells("A1:D1");
+    const titleCell = sheet.getCell("A1");
+    titleCell.value = "InsightX AI Analytics Dashboard";
+    titleStyle(titleCell);
+    sheet.getRow(1).height = 28;
 
+    // ---------- Section ----------
     sheet.addRow([]);
+    const headerRow = sheet.addRow(["Metric", "Value"]);
 
-    // ---------- Section 1: Financial Performance ----------
-    let currRow = 4;
-    applySectionHeader(sheet, currRow, "1. FINANCIAL METRICS", 4);
+    headerStyle(headerRow.getCell(1));
+    headerStyle(headerRow.getCell(2));
 
-    const fHeader = sheet.addRow(["Financial Metric", "Value (₹)", "Category", ""]);
-    applyTableHeaders(fHeader, ["Financial Metric", "Value (₹)", "Category", ""]);
-
-    const fStart = sheet.lastRow.number + 1;
-    const revenue = analysis.dashboard?.revenue || analysis.payment?.revenue || {};
-
-    const r1 = sheet.addRow(["Gross Revenue", revenue.totalRevenue || revenue.totalAmount || 0, "Gross Settlement", ""]);
-    const r2 = sheet.addRow(["Refund Deductions", revenue.refundAmount || 0, "Successful Refunds", ""]);
-    const r3 = sheet.addRow(["Net Realized Revenue", revenue.netRevenue || revenue.netAmount || 0, "Net Settled Revenue", ""]);
-
-    currencyStyle(r1.getCell(2));
-    currencyStyle(r2.getCell(2));
-    currencyStyle(r3.getCell(2));
-
-    applyZebraStriping(sheet, fStart, sheet.lastRow.number);
-
-    // ---------- Section 2: Transaction Volume & Operations ----------
-    sheet.addRow([]);
-    currRow = sheet.lastRow.number + 1;
-    applySectionHeader(sheet, currRow, "2. OPERATIONAL VOLUME & SUCCESS", 4);
-
-    const oHeader = sheet.addRow(["Operational Metric", "Volume / Rate", "Benchmark", ""]);
-    applyTableHeaders(oHeader, ["Operational Metric", "Volume / Rate", "Benchmark", ""]);
-
-    const oStart = sheet.lastRow.number + 1;
-    const overview = analysis.dashboard?.overview || analysis.payment?.overview || {};
-    const performance = analysis.dashboard?.performance || analysis.payment || {};
-
-    const o1 = sheet.addRow(["Total Transactions", overview.totalTransactions || 0, "100%", ""]);
-    const o2 = sheet.addRow(["Successful Transactions", overview.successfulTransactions || 0, "Completed", ""]);
-    const o3 = sheet.addRow(["Successful Refunds", overview.refundedTransactions || 0, "Settled Refunds", ""]);
-    const o4 = sheet.addRow(["Overall Success Rate", `${performance.successRate || 0}%`, "Optimal Target > 85%", ""]);
-    const o5 = sheet.addRow(["Refund Rate", `${performance.refundRate || 0}%`, "Target < 5%", ""]);
-
-    numberStyle(o1.getCell(2));
-    numberStyle(o2.getCell(2));
-    numberStyle(o3.getCell(2));
-
-    applyZebraStriping(sheet, oStart, sheet.lastRow.number);
-
-    // ---------- Section 3: Key Business Highlights ----------
-    sheet.addRow([]);
-    currRow = sheet.lastRow.number + 1;
-    applySectionHeader(sheet, currRow, "3. KEY BUSINESS HIGHLIGHTS", 4);
-
-    const hHeader = sheet.addRow(["Category", "Top Performing Value", "Notes", ""]);
-    applyTableHeaders(hHeader, ["Category", "Top Performing Value", "Notes", ""]);
-
-    const hStart = sheet.lastRow.number + 1;
     const dashboard = analysis.dashboard || {};
+    const overview = dashboard.overview || {};
+    const revenue = dashboard.revenue || {};
+    const performance = dashboard.performance || {};
 
-    sheet.addRow(["Top Payment Channel", dashboard.topPaymentMode ? `${dashboard.topPaymentMode[0]} (${dashboard.topPaymentMode[1]} tx)` : "-", "Primary customer choice", ""]);
-    sheet.addRow(["Top Platform / OS", dashboard.topDevice ? dashboard.topDevice[0] : "-", "Leading client platform", ""]);
-    sheet.addRow(["Peak Revenue Month", dashboard.peakMonth ? dashboard.peakMonth[0] : "-", "Highest volume billing period", ""]);
+    const rows = [
+        ["Total Transactions", overview.totalTransactions || 0],
+        ["Successful Transactions", overview.successfulTransactions || 0],
+        ["Failed Transactions", overview.failedTransactions || 0],
+        ["Successful Refunds", overview.refundedTransactions || 0],
+        ["Gross Revenue", revenue.totalRevenue || revenue.totalAmount || 0],
+        ["Refund Deductions", revenue.refundAmount || 0],
+        ["Net Revenue", revenue.netRevenue || revenue.netAmount || 0],
+        ["Success Rate (%)", performance.successRate || 0],
+        ["Refund Rate (%)", performance.refundRate || 0],
+        ["Top Payment Mode", dashboard.topPaymentMode ? dashboard.topPaymentMode[0] : "-"],
+        ["Top Device", dashboard.topDevice ? dashboard.topDevice[0] : "-"],
+        ["Top Location", dashboard.topLocation ? dashboard.topLocation[0] : "-"],
+        ["Peak Month", dashboard.peakMonth ? dashboard.peakMonth[0] : "-"]
+    ];
 
-    applyZebraStriping(sheet, hStart, sheet.lastRow.number);
+    rows.forEach((row) => {
+        const addedRow = sheet.addRow(row);
+        const metricName = row[0];
+
+        if (["Gross Revenue", "Refund Deductions", "Net Revenue"].includes(metricName)) {
+            addedRow.getCell(2).numFmt = "₹#,##0.00";
+        }
+    });
+
+    // ---------- Borders ----------
+    sheet.eachRow((row) => {
+        if (row.hasValues) {
+            row.eachCell({ includeEmpty: false }, (cell) => {
+                cell.border = {
+                    top: { style: "thin" },
+                    left: { style: "thin" },
+                    bottom: { style: "thin" },
+                    right: { style: "thin" }
+                };
+            });
+        }
+    });
 
     autoFitColumns(sheet);
 };
