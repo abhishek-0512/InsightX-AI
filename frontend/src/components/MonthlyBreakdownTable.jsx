@@ -1,15 +1,6 @@
 import { FaCalendarAlt, FaArrowRight, FaChartLine, FaCheckSquare, FaSquare } from "react-icons/fa";
 import { useAnalysis } from "../context/AnalysisContext";
 
-function formatCurrency(val) {
-    if (val === undefined || val === null || isNaN(val)) return "₹0";
-    return new Intl.NumberFormat("en-IN", {
-        style: "currency",
-        currency: "INR",
-        maximumFractionDigits: 2
-    }).format(val);
-}
-
 function MonthlyBreakdownTable() {
     const {
         cumulativeAnalysis,
@@ -17,7 +8,9 @@ function MonthlyBreakdownTable() {
         selectedMonths,
         selectSingleMonth,
         toggleMonth,
-        selectCumulative
+        selectCumulative,
+        formatCurrency,
+        currencySymbol
     } = useAnalysis();
 
     const monthlyList = cumulativeAnalysis?.monthly?.monthlyList || [];
@@ -95,9 +88,9 @@ function MonthlyBreakdownTable() {
                             <th className="py-4 px-4 text-right">Successful Tx</th>
                             <th className="py-4 px-4 text-right">Failed Tx</th>
                             <th className="py-4 px-4 text-right">Refunds</th>
-                            <th className="py-4 px-4 text-right">Refund Deductions</th>
-                            <th className="py-4 px-4 text-right">Gross Revenue</th>
-                            <th className="py-4 px-5 text-right text-cyan-400 font-extrabold">Net Realized Revenue</th>
+                            <th className="py-4 px-4 text-right">Refund Deductions ({currencySymbol})</th>
+                            <th className="py-4 px-4 text-right">Gross Revenue ({currencySymbol})</th>
+                            <th className="py-4 px-5 text-right text-cyan-400 font-extrabold">Net Realized Revenue ({currencySymbol})</th>
                             <th className="py-4 px-4 text-center">Success Rate</th>
                             <th className="py-4 px-5 text-center">Action</th>
                         </tr>

@@ -1,4 +1,4 @@
-import { FaCalendarAlt, FaRedo, FaLayerGroup, FaCheckSquare, FaSquare } from "react-icons/fa";
+import { FaCalendarAlt, FaRedo, FaLayerGroup, FaCheckSquare, FaSquare, FaCheck } from "react-icons/fa";
 import { useAnalysis } from "../context/AnalysisContext";
 
 function DateFilterBar() {
@@ -14,7 +14,8 @@ function DateFilterBar() {
         customRange,
         setCustomRange,
         dateMeta,
-        resetFilter
+        resetFilter,
+        detectedDateFormat
     } = useAnalysis();
 
     if (!result || !rawRows.length) return null;
@@ -62,9 +63,16 @@ function DateFilterBar() {
                         <FaLayerGroup size={20} />
                     </div>
                     <div>
-                        <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                            Dataset View & Multi-Month Analyzer
-                        </h2>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-xl font-extrabold text-white tracking-tight">
+                                Dataset View & Multi-Month Analyzer
+                            </h2>
+                            {detectedDateFormat && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono flex items-center gap-1">
+                                    <FaCheck size={9} /> {detectedDateFormat}
+                                </span>
+                            )}
+                        </div>
                         <p className="text-xs text-slate-400 font-medium">
                             Select any single month, combine multiple months together, or view full cumulative analytics
                         </p>

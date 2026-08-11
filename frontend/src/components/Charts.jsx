@@ -25,10 +25,10 @@ const COLORS = [
     "#f97316"
 ];
 
-function CustomTooltip({ active, payload, label }) {
+function CustomTooltip({ active, payload, label, formatCurrency, currencySymbol }) {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-slate-950 border border-slate-700/80 p-4 rounded-2xl shadow-2xl text-xs text-slate-200 min-w-[180px]">
+            <div className="bg-slate-950 border border-slate-700/80 p-4 rounded-2xl shadow-2xl text-xs text-slate-200 min-w-[190px]">
                 <p className="font-bold text-white mb-2 pb-1.5 border-b border-slate-800 text-sm">
                     {label || payload[0].name}
                 </p>
@@ -40,7 +40,7 @@ function CustomTooltip({ active, payload, label }) {
                         </span>
                         <strong className="text-white font-mono text-xs font-bold">
                             {typeof item.value === "number" && (item.dataKey?.includes("revenue") || item.dataKey?.includes("Amount") || item.dataKey?.includes("Revenue") || item.dataKey === "netRevenue" || item.dataKey === "grossRevenue" || item.dataKey === "refundAmount")
-                                ? `₹${item.value.toLocaleString("en-IN")}`
+                                ? formatCurrency(item.value)
                                 : item.value?.toLocaleString?.() || item.value}
                         </strong>
                     </div>
@@ -52,7 +52,14 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 function Charts() {
-    const { result, cumulativeAnalysis, activePeriod, selectedMonths } = useAnalysis();
+    const {
+        result,
+        cumulativeAnalysis,
+        activePeriod,
+        selectedMonths,
+        formatCurrency,
+        currencySymbol
+    } = useAnalysis();
 
     const analysis = result?.analysis;
     if (!analysis) return null;
@@ -97,20 +104,20 @@ function Charts() {
 
     const chartData = showMonthlyChart ? monthlyBarData : dailyData.length ? dailyData : monthlyBarData;
 
-    let chartTitle = "Daily Revenue Velocity (₹)";
+    let chartTitle = `Daily Revenue Velocity (${currencySymbol})`;
     let chartSub = "Full day-by-day revenue and activity trend";
 
     if (showMonthlyChart) {
         chartTitle =
             activePeriod === "months"
-                ? `Comparison: ${selectedMonths.join(" + ")}`
-                : "Monthly Net Revenue & Trends";
+                ? `Comparison: ${selectedMonths.join(" + ")} (${currencySymbol})`
+                : `Monthly Net Revenue & Trends (${currencySymbol})`;
         chartSub = "Side-by-side performance across selected billing periods";
     } else if (activePeriod === "months" && selectedMonths.length === 1) {
-        chartTitle = `${selectedMonths[0]} — Daily Revenue Trend`;
+        chartTitle = `${selectedMonths[0]} — Daily Revenue Trend (${currencySymbol})`;
         chartSub = `Day-by-day revenue velocity across ${selectedMonths[0]}`;
     } else if (cumulativeMonthlyList.length === 1) {
-        chartTitle = `${cumulativeMonthlyList[0].month} — Daily Revenue Trend`;
+        chartTitle = `${cumulativeMonthlyList[0].month} — Daily Revenue Trend (${currencySymbol})`;
         chartSub = `Day-by-day revenue velocity across ${cumulativeMonthlyList[0].month}`;
     }
 
@@ -143,7 +150,7 @@ function Charts() {
                                     <Cell key={index} fill={COLORS[index % COLORS.length]} />
                                 ))}
                             </Pie>
-                            <Tooltip content={<CustomTooltip />} />
+                            <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} currencySymbol={currencySymbol} />} />
                             <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "14px" }} />
                         </PieChart>
                     </ResponsiveContainer>
@@ -158,7 +165,7 @@ function Charts() {
                         <p className="text-xs text-slate-400 font-medium mt-0.5">{chartSub}</p>
                     </div>
                     <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                        Settled (₹)
+                        Settled ({currencySymbol})
                     </span>
                 </div>
 
@@ -167,19 +174,23 @@ function Charts() {
                         <BarChart data={chartData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
                             <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-                            <YAxis stroke="#94a3b8" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-                            <Tooltip content={<CustomTooltip />} />
+                            <YAxis
+                                stroke="#94a3b8"
+                                tick={{ fontSize: 11, fill: "#94a3b8" }}
+                                tickFormatter={(v) => (typeof v === "number" ? `${currencySymbol}${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}` : v)}
+                            />
+                            <Tooltip content={<CustomTooltip formatCurrency={formatCurrency} currencySymbol={currencySymbol} />} />
                             <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "14px" }} />
                             <Bar
                                 dataKey="netRevenue"
-                                name="Net Revenue (₹)"
+                                name={`Net Revenue (${currencySymbol})`}
                                 fill="#06b6d4"
                                 radius={[8, 8, 0, 0]}
                             />
                             {showMonthlyChart && (
                                 <Bar
                                     dataKey="refundAmount"
-                                    name="Refund Amount (₹)"
+                                    name={`Refund Amount (${currencySymbol})`}
                                     fill="#f59e0b"
                                     radius={[8, 8, 0, 0]}
                                 />

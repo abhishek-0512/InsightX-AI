@@ -2,8 +2,10 @@ import {
     parseDate,
     formatMonthYear,
     formatDateISO,
-    sortMonthsChronologically
+    sortMonthsChronologically,
+    detectDatasetDateFormat
 } from "./dateParser";
+import { formatCurrency, getCurrencySymbol } from "./currency";
 
 function getColumnValue(row, possibleKeys) {
     if (!row) return null;
@@ -76,7 +78,8 @@ const dateKeys = [
     "txn_date",
     "order_date",
     "settlement_date",
-    "datetime"
+    "datetime",
+    "time"
 ];
 
 const platformKeys = [
@@ -89,16 +92,24 @@ const platformKeys = [
     "client"
 ];
 
-export function computeAnalytics(rows = []) {
+export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCode = "INR") {
     const totalTransactions = rows.length;
 
-    let successfulTransactions = 0;
-    let failedTransactions = 0;
-    let refundedTransactions = 0;
-    let failedRefundTransactions = 0;
+    // Detect dataset date format if not explicitly passed
+    const detectedFormat = dayFirstOverride !== null
+        ? { dayFirst: dayFirstOverride }
+        : detectDatasetDateFormat(rows, dateKeys);
+
+    const dayFirst = detectedFormat.dayFirst;
+
+    let successfulSales = 0;
+    let successfulTransactions = 0; // Total successful transactions (sales + successful refunds)
+    let failedTransactions = 0;     // Total failed transactions (failed sales + failed refunds)
+    let refundedTransactions = 0;   // Successful refunds
+    let failedRefundTransactions = 0; // Failed refund attempts
 
     let totalAmount = 0; // Gross Revenue from successful sales
-    let refundAmount = 0; // Successful refunds
+    let refundAmount = 0; // Successful refunds deductions
 
     const paymentModes = {};
     const monthlyMap = {};
@@ -149,9 +160,10 @@ export function computeAnalytics(rows = []) {
         const isRefund = isRefundFlag || statusRaw.includes("refund");
 
         if (isRefund) {
-            // ONLY SUCCESSFUL refunds are counted towards refund metrics
             if (isSuccess) {
+                // Successful refund is counted in successful transactions and refund count
                 refundedTransactions++;
+                successfulTransactions++;
                 refundAmount += amount;
             } else {
                 // Failed refunds are counted as failed transactions
@@ -161,6 +173,7 @@ export function computeAnalytics(rows = []) {
         } else {
             // Normal Sale Transaction
             if (isSuccess) {
+                successfulSales++;
                 successfulTransactions++;
                 totalAmount += amount;
             } else if (isFailure) {
@@ -177,15 +190,16 @@ export function computeAnalytics(rows = []) {
         platformMap[platform] = (platformMap[platform] || 0) + 1;
 
         const dateVal = getColumnValue(row, dateKeys);
+        const d = parseDate(dateVal, dayFirst);
 
-        const d = parseDate(dateVal);
         if (d) {
-            const mKey = formatMonthYear(d);
+            const mKey = formatMonthYear(d, dayFirst);
             if (mKey) {
                 if (!monthlyMap[mKey]) {
                     monthlyMap[mKey] = {
                         month: mKey,
                         transactions: 0,
+                        successfulSales: 0,
                         successfulTransactions: 0,
                         failedTransactions: 0,
                         refundedTransactions: 0,
@@ -202,6 +216,7 @@ export function computeAnalytics(rows = []) {
                 if (isRefund) {
                     if (isSuccess) {
                         monthlyMap[mKey].refundedTransactions++;
+                        monthlyMap[mKey].successfulTransactions++;
                         monthlyMap[mKey].refundAmount += amount;
                     } else {
                         monthlyMap[mKey].failedRefundTransactions++;
@@ -209,6 +224,7 @@ export function computeAnalytics(rows = []) {
                     }
                 } else {
                     if (isSuccess) {
+                        monthlyMap[mKey].successfulSales++;
                         monthlyMap[mKey].successfulTransactions++;
                         monthlyMap[mKey].amount += amount;
                     } else {
@@ -217,15 +233,19 @@ export function computeAnalytics(rows = []) {
                 }
             }
 
-            const dKey = formatDateISO(d);
+            const dKey = formatDateISO(d, dayFirst);
             if (dKey) {
                 if (!dailyMap[dKey]) {
                     dailyMap[dKey] = { transactions: 0, amount: 0, success: 0, fail: 0, refunds: 0 };
                 }
                 dailyMap[dKey].transactions++;
                 if (isRefund) {
-                    if (isSuccess) dailyMap[dKey].refunds++;
-                    else dailyMap[dKey].fail++;
+                    if (isSuccess) {
+                        dailyMap[dKey].refunds++;
+                        dailyMap[dKey].success++;
+                    } else {
+                        dailyMap[dKey].fail++;
+                    }
                 } else {
                     if (isSuccess) {
                         dailyMap[dKey].success++;
@@ -244,7 +264,7 @@ export function computeAnalytics(rows = []) {
     const finalRefundAmount = Number(refundAmount.toFixed(2));
     const netAmount = Number(Math.max(0, grossAmount - finalRefundAmount).toFixed(2));
 
-    // Prepare sorted monthlyList
+    // Prepare chronologically sorted monthlyList
     const sortedMonthKeys = sortMonthsChronologically(Object.keys(monthlyMap));
     const monthlyList = sortedMonthKeys.map((key) => {
         const item = monthlyMap[key];
@@ -264,6 +284,7 @@ export function computeAnalytics(rows = []) {
         return {
             month: key,
             transactions: item.transactions,
+            successfulSales: item.successfulSales || 0,
             successfulTransactions: item.successfulTransactions,
             failedTransactions: item.failedTransactions,
             refundedTransactions: item.refundedTransactions,
@@ -283,30 +304,30 @@ export function computeAnalytics(rows = []) {
         formattedMonthlyMap[m.month] = m;
     });
 
-    // Generate AI Summary Insights
+    // Generate AI Summary Insights with dynamic currency
     const aiSummary = [];
     aiSummary.push(`Total of ${totalTransactions.toLocaleString()} transaction record(s) analyzed.`);
-    aiSummary.push(`Net Revenue: ₹${netAmount.toLocaleString("en-IN")} (Gross: ₹${grossAmount.toLocaleString("en-IN")}) with an overall ${successRate}% success rate.`);
+    aiSummary.push(`Net Revenue: ${formatCurrency(netAmount, currencyCode)} (Gross: ${formatCurrency(grossAmount, currencyCode)}) with an overall ${successRate}% success rate across all ${successfulTransactions.toLocaleString()} successful transactions (${successfulSales.toLocaleString()} sales, ${refundedTransactions.toLocaleString()} refunds).`);
 
     if (refundedTransactions > 0) {
-        aiSummary.push(`${refundedTransactions} successful refund(s) totaling ₹${finalRefundAmount.toLocaleString("en-IN")} (${refundRate}% refund rate). Failed refund attempts are safely excluded.`);
+        aiSummary.push(`${refundedTransactions.toLocaleString()} successful refund(s) totaling ${formatCurrency(finalRefundAmount, currencyCode)} (${refundRate}% refund rate). Failed refund attempts are safely separated.`);
     } else {
         aiSummary.push(`No successful refund transactions detected in this selection.`);
     }
 
     if (failedTransactions > 0) {
-        aiSummary.push(`${failedTransactions} transaction(s) failed or were declined (${((failedTransactions / totalTransactions) * 100).toFixed(1)}% failure rate).`);
+        aiSummary.push(`${failedTransactions.toLocaleString()} transaction(s) failed or were declined (${((failedTransactions / totalTransactions) * 100).toFixed(1)}% failure rate).`);
     }
 
     const topMode = Object.entries(paymentModes).sort((a, b) => b[1] - a[1])[0];
     if (topMode) {
-        aiSummary.push(`Top payment mode is "${topMode[0]}" with ${topMode[1]} transaction(s).`);
+        aiSummary.push(`Top payment mode is "${topMode[0]}" with ${topMode[1].toLocaleString()} transaction(s).`);
     }
 
     if (monthlyList.length > 1) {
         const peak = [...monthlyList].sort((a, b) => b.netAmount - a.netAmount)[0];
         if (peak) {
-            aiSummary.push(`Cumulative Multi-Month Analysis: ${monthlyList.length} distinct months detected. Peak month by net revenue is ${peak.month} (₹${peak.netAmount.toLocaleString("en-IN")} net).`);
+            aiSummary.push(`Cumulative Multi-Month Analysis: ${monthlyList.length} distinct months detected. Peak month by net revenue is ${peak.month} (${formatCurrency(peak.netAmount, currencyCode)} net).`);
         }
     }
 
@@ -314,6 +335,7 @@ export function computeAnalytics(rows = []) {
         payment: {
             overview: {
                 totalTransactions,
+                successfulSales,
                 successfulTransactions,
                 failedTransactions,
                 refundedTransactions,
@@ -335,6 +357,8 @@ export function computeAnalytics(rows = []) {
         },
         daily: dailyMap,
         platform: platformMap,
-        aiSummary
+        aiSummary,
+        detectedDateFormat: detectedFormat.detectedPattern,
+        currencyCode
     };
 }

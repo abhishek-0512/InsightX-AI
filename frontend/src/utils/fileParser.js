@@ -85,10 +85,14 @@ export async function parseFileInBrowser(file) {
                 reader.onload = (e) => {
                     try {
                         const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: "array" });
+                        const workbook = XLSX.read(data, {
+                            type: "array",
+                            cellDates: true,
+                            dateNF: "yyyy-mm-dd hh:mm:ss"
+                        });
                         const firstSheetName = workbook.SheetNames[0];
                         const worksheet = workbook.Sheets[firstSheetName];
-                        const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                        const json = XLSX.utils.sheet_to_json(worksheet, { defval: "", raw: false });
 
                         if (json && json.length) {
                             resolve(json);

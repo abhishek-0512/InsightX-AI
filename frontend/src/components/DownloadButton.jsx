@@ -6,7 +6,7 @@ import { exportExcelInBrowser } from "../utils/excelExporter";
 import api from "../api/axios";
 
 function DownloadButton() {
-    const { result, filteredRows } = useAnalysis();
+    const { result, filteredRows, currency } = useAnalysis();
     const [downloading, setDownloading] = useState(false);
 
     if (!result || !result.rows || !result.rows.length) return null;
@@ -25,7 +25,8 @@ function DownloadButton() {
                     {
                         fileName: fileName.endsWith(".xlsx") ? fileName : `${fileName}.xlsx`,
                         rows: filteredRows || result.rows,
-                        analysis: result.analysis
+                        analysis: result.analysis,
+                        currency: currency || "INR"
                     },
                     {
                         responseType: "blob",
@@ -52,7 +53,7 @@ function DownloadButton() {
             }
 
             // Client-side instant Excel generator fallback (100% reliable on Vercel)
-            exportExcelInBrowser(filteredRows || result.rows, result.analysis, `${fileName}_report.xlsx`);
+            await exportExcelInBrowser(filteredRows || result.rows, result.analysis, `${fileName}_report.xlsx`, currency || "INR");
             toast.success("Excel Report downloaded successfully!", { id: toastId });
         } catch (err) {
             console.error("Download failed:", err);

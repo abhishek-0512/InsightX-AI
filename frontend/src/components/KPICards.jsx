@@ -2,13 +2,22 @@ import { FaExchangeAlt, FaCheckCircle, FaWallet, FaUndoAlt } from "react-icons/f
 import { useAnalysis } from "../context/AnalysisContext";
 
 function KPICards() {
-    const { result, activePeriod, selectedMonths } = useAnalysis();
+    const {
+        result,
+        activePeriod,
+        selectedMonths,
+        formatCurrency,
+        currencySymbol
+    } = useAnalysis();
 
     const analysis = result?.analysis;
     if (!analysis) return null;
 
     const totalTx = analysis?.payment?.overview?.totalTransactions || 0;
     const successTx = analysis?.payment?.overview?.successfulTransactions || 0;
+    const successSales = analysis?.payment?.overview?.successfulSales !== undefined
+        ? analysis.payment.overview.successfulSales
+        : Math.max(0, successTx - (analysis?.payment?.overview?.refundedTransactions || 0));
     const failedTx = analysis?.payment?.overview?.failedTransactions || 0;
     const refundedTx = analysis?.payment?.overview?.refundedTransactions || 0;
 
@@ -21,15 +30,6 @@ function KPICards() {
         analysis?.payment?.revenue?.netAmount !== undefined
             ? analysis.payment.revenue.netAmount
             : Math.max(0, grossRevenue - refundAmount);
-
-    const formatCurrency = (val) => {
-        if (val === undefined || val === null || isNaN(val)) return "₹0";
-        return new Intl.NumberFormat("en-IN", {
-            style: "currency",
-            currency: "INR",
-            maximumFractionDigits: 2
-        }).format(val);
-    };
 
     let periodLabel = "Cumulative (All Months)";
     if (activePeriod === "months") {
@@ -55,19 +55,19 @@ function KPICards() {
             icon: <FaExchangeAlt className="text-cyan-400" size={18} />,
             iconBg: "bg-cyan-500/10 border-cyan-500/20",
             textColor: "text-cyan-400",
-            primarySub: `${successTx.toLocaleString()} Successful`,
+            primarySub: `${successTx.toLocaleString()} Successful (${successSales.toLocaleString()} Sales + ${refundedTx.toLocaleString()} Refunds)`,
             secondarySub: `${failedTx.toLocaleString()} Failed`,
             badge: periodLabel
         },
         {
-            title: "Success Rate",
+            title: "Overall Success Rate",
             value: `${successRate}%`,
             icon: <FaCheckCircle className="text-emerald-400" size={18} />,
             iconBg: "bg-emerald-500/10 border-emerald-500/20",
             textColor: "text-emerald-400",
-            primarySub: `${successTx.toLocaleString()} Completed`,
+            primarySub: `${successTx.toLocaleString()} of ${totalTx.toLocaleString()} Completed`,
             secondarySub: `${((100 - successRate) || 0).toFixed(1)}% drop-off`,
-            badge: "Completed"
+            badge: "Sales + Refunds"
         },
         {
             title: "Net Realized Revenue",
@@ -76,8 +76,8 @@ function KPICards() {
             iconBg: "bg-cyan-500/10 border-cyan-500/20",
             textColor: "text-cyan-400",
             primarySub: `Gross: ${formatCurrency(grossRevenue)}`,
-            secondarySub: `Refunds: ${formatCurrency(refundAmount)}`,
-            badge: "Gross - Refunds"
+            secondarySub: `Refunds: -${formatCurrency(refundAmount)}`,
+            badge: `Gross - Refunds (${currencySymbol})`
         },
         {
             title: "Successful Refunds",
@@ -85,9 +85,9 @@ function KPICards() {
             icon: <FaUndoAlt className="text-amber-400" size={18} />,
             iconBg: "bg-amber-500/10 border-amber-500/20",
             textColor: "text-amber-400",
-            primarySub: `Amount: ${formatCurrency(refundAmount)}`,
-            secondarySub: `${refundRate}% refund rate`,
-            badge: "Successful Only"
+            primarySub: `Deducted: ${formatCurrency(refundAmount)}`,
+            secondarySub: `${refundRate}% of total transactions`,
+            badge: "Completed Refunds"
         }
     ];
 
@@ -121,13 +121,18 @@ function KPICards() {
                         </div>
 
                         {/* Bottom Subtext Row */}
-                        <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                            <span className="font-semibold text-slate-300">
-                                {card.primarySub}
-                            </span>
-                            <span className="text-slate-400 font-medium">
-                                {card.secondarySub}
-                            </span>
+                        <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-col gap-1 text-xs">
+                            <div className="flex items-center justify-between">
+                                <span className="font-semibold text-slate-300 truncate mr-1">
+                                    {card.primarySub}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between text-slate-400 font-medium text-[11px]">
+                                <span>{card.secondarySub}</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800/80 text-slate-300 font-mono">
+                                    {card.badge}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 ))}

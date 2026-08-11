@@ -1,28 +1,51 @@
-import { createContext, useContext, useState, useMemo } from "react";
+import { createContext, useContext, useState, useMemo, useEffect } from "react";
 import {
     parseDate,
     formatMonthYear,
-    sortMonthsChronologically
+    sortMonthsChronologically,
+    detectDatasetDateFormat,
+    defaultDateKeys
 } from "../utils/dateParser";
 import { computeAnalytics } from "../utils/analyticsEngine";
+import {
+    CURRENCIES,
+    CURRENCY_MAP,
+    formatCurrency as formatCurrencyUtil,
+    getCurrencySymbol,
+    detectDatasetCurrency
+} from "../utils/currency";
 
 const AnalysisContext = createContext();
 
-function getRowDate(row) {
+function getRowDate(row, dayFirst = null) {
     if (!row) return null;
-    const val =
-        row.created_at ||
-        row.entry_time ||
-        row.date ||
-        row.transaction_date ||
-        row.createdat ||
-        row.payment_date ||
-        row.timestamp ||
-        row.createdAt ||
-        row.entryTime ||
-        row.Date;
+    let val = null;
 
-    return parseDate(val);
+    for (const key of defaultDateKeys) {
+        if (row[key] !== undefined && row[key] !== null && row[key] !== "" && row[key] !== "NULL") {
+            val = row[key];
+            break;
+        }
+        const keyLower = key.toLowerCase();
+        if (row[keyLower] !== undefined && row[keyLower] !== null && row[keyLower] !== "" && row[keyLower] !== "NULL") {
+            val = row[keyLower];
+            break;
+        }
+    }
+
+    if (val === null) {
+        for (const k of Object.keys(row)) {
+            const norm = k.toLowerCase().replace(/[\s_-]/g, "");
+            if (defaultDateKeys.some((dk) => norm === dk.replace(/[\s_-]/g, ""))) {
+                if (row[k] !== undefined && row[k] !== null && row[k] !== "" && row[k] !== "NULL") {
+                    val = row[k];
+                    break;
+                }
+            }
+        }
+    }
+
+    return parseDate(val, dayFirst);
 }
 
 export function AnalysisProvider({ children }) {
@@ -30,6 +53,35 @@ export function AnalysisProvider({ children }) {
     const [activePeriod, setActivePeriod] = useState("all"); // "all", "months", "1m", "3m", "6m", "1y", "custom"
     const [selectedMonths, setSelectedMonths] = useState([]); // array of strings e.g. ["Jun 2026", "Jul 2026"]
     const [customRange, setCustomRange] = useState({ startDate: "", endDate: "" });
+
+    // Currency selection with localStorage persistence
+    const [currency, setCurrencyState] = useState(() => {
+        try {
+            return localStorage.getItem("insightx_selected_currency") || "INR";
+        } catch (e) {
+            return "INR";
+        }
+    });
+
+    const setCurrency = (code) => {
+        if (!CURRENCY_MAP[code]) return;
+        setCurrencyState(code);
+        try {
+            localStorage.setItem("insightx_selected_currency", code);
+        } catch (e) {
+            // Ignore storage errors
+        }
+    };
+
+    // Extract all raw rows
+    const rawRows = useMemo(() => fullData?.rows || [], [fullData]);
+
+    // Detect dataset date format (e.g. DD/MM vs MM/DD)
+    const detectedDateFormat = useMemo(() => {
+        return detectDatasetDateFormat(rawRows);
+    }, [rawRows]);
+
+    const dayFirst = detectedDateFormat.dayFirst;
 
     // Function to set upload result
     const setResult = (data) => {
@@ -40,7 +92,15 @@ export function AnalysisProvider({ children }) {
         }
 
         const rows = data.rows || [];
-        const initialAnalysis = computeAnalytics(rows);
+
+        // Auto-detect currency from dataset if available
+        const detectedCurr = detectDatasetCurrency(rows);
+        if (detectedCurr) {
+            setCurrency(detectedCurr);
+        }
+
+        const initialDateFormat = detectDatasetDateFormat(rows);
+        const initialAnalysis = computeAnalytics(rows, initialDateFormat.dayFirst, detectedCurr || currency);
 
         const payload = {
             ...data,
@@ -54,9 +114,6 @@ export function AnalysisProvider({ children }) {
         setCustomRange({ startDate: "", endDate: "" });
     };
 
-    // Extract all raw rows
-    const rawRows = useMemo(() => fullData?.rows || [], [fullData]);
-
     // Extract date metadata
     const dateMeta = useMemo(() => {
         if (!rawRows.length) return { earliestDate: null, latestDate: null, availableMonths: [] };
@@ -65,10 +122,10 @@ export function AnalysisProvider({ children }) {
         const monthsSet = new Set();
 
         rawRows.forEach((row) => {
-            const d = getRowDate(row);
+            const d = getRowDate(row, dayFirst);
             if (d) {
                 dates.push(d);
-                const m = formatMonthYear(d);
+                const m = formatMonthYear(d, dayFirst);
                 if (m) monthsSet.add(m);
             }
         });
@@ -83,13 +140,13 @@ export function AnalysisProvider({ children }) {
             latestDate: dates[dates.length - 1],
             availableMonths: sortedMonths
         };
-    }, [rawRows]);
+    }, [rawRows, dayFirst]);
 
     // Full cumulative analysis across all rows
     const cumulativeAnalysis = useMemo(() => {
         if (!rawRows.length) return null;
-        return computeAnalytics(rawRows);
-    }, [rawRows]);
+        return computeAnalytics(rawRows, dayFirst, currency);
+    }, [rawRows, dayFirst, currency]);
 
     // Filter rows according to selected date period / custom range / month(s)
     const filteredRows = useMemo(() => {
@@ -99,12 +156,12 @@ export function AnalysisProvider({ children }) {
         const latest = dateMeta.latestDate ? new Date(dateMeta.latestDate) : new Date();
 
         return rawRows.filter((row) => {
-            const d = getRowDate(row);
+            const d = getRowDate(row, dayFirst);
             if (!d) return false;
 
             if (activePeriod === "months") {
                 if (!selectedMonths.length) return true;
-                const m = formatMonthYear(d);
+                const m = formatMonthYear(d, dayFirst);
                 return selectedMonths.includes(m);
             }
 
@@ -142,7 +199,7 @@ export function AnalysisProvider({ children }) {
 
             return true;
         });
-    }, [rawRows, activePeriod, selectedMonths, customRange, dateMeta]);
+    }, [rawRows, activePeriod, selectedMonths, customRange, dateMeta, dayFirst]);
 
     // Compute dynamic analysis for active filtered dataset
     const activeAnalysis = useMemo(() => {
@@ -150,8 +207,8 @@ export function AnalysisProvider({ children }) {
         if (activePeriod === "all") {
             return cumulativeAnalysis;
         }
-        return computeAnalytics(filteredRows);
-    }, [fullData, activePeriod, filteredRows, cumulativeAnalysis]);
+        return computeAnalytics(filteredRows, dayFirst, currency);
+    }, [fullData, activePeriod, filteredRows, cumulativeAnalysis, dayFirst, currency]);
 
     // Derived result payload for components
     const resultPayload = useMemo(() => {
@@ -163,25 +220,26 @@ export function AnalysisProvider({ children }) {
         };
     }, [fullData, activeAnalysis, cumulativeAnalysis]);
 
+    // Helper formatCurrency that uses active currency
+    const formatCurrency = (val, maxDigits = 2) => {
+        return formatCurrencyUtil(val, currency, maxDigits);
+    };
+
     // Month selection helpers:
-    // 1. Select single month
     const selectSingleMonth = (monthName) => {
         setSelectedMonths([monthName]);
         setActivePeriod("months");
     };
 
-    // 2. Toggle month in multi-month selection
     const toggleMonth = (monthName) => {
         let updated;
         if (activePeriod !== "months") {
-            // Start multi-month selection with this month
             updated = [monthName];
             setActivePeriod("months");
         } else {
             if (selectedMonths.includes(monthName)) {
                 updated = selectedMonths.filter((m) => m !== monthName);
                 if (updated.length === 0) {
-                    // Reset to all if none selected
                     setActivePeriod("all");
                     setSelectedMonths([]);
                     return;
@@ -189,7 +247,6 @@ export function AnalysisProvider({ children }) {
             } else {
                 updated = sortMonthsChronologically([...selectedMonths, monthName]);
                 if (updated.length === dateMeta.availableMonths.length) {
-                    // If all months are checked, set to all
                     setActivePeriod("all");
                     setSelectedMonths([]);
                     return;
@@ -200,13 +257,11 @@ export function AnalysisProvider({ children }) {
         setActivePeriod("months");
     };
 
-    // 3. Select all / cumulative
     const selectCumulative = () => {
         setActivePeriod("all");
         setSelectedMonths([]);
     };
 
-    // 4. Select specific combination of months
     const selectMultipleMonths = (monthsArr) => {
         const sorted = sortMonthsChronologically(monthsArr);
         if (!sorted.length || sorted.length === dateMeta.availableMonths.length) {
@@ -243,7 +298,14 @@ export function AnalysisProvider({ children }) {
                 customRange,
                 setCustomRange,
                 dateMeta,
-                resetFilter
+                resetFilter,
+                currency,
+                setCurrency,
+                formatCurrency,
+                currencySymbol: getCurrencySymbol(currency),
+                availableCurrencies: CURRENCIES,
+                dayFirst,
+                detectedDateFormat: detectedDateFormat.detectedPattern
             }}
         >
             {children}

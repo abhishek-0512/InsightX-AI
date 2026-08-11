@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { getCurrencySymbol } from "./currency";
 
 const colors = {
     navyDark: "0F172A",
@@ -6,6 +7,8 @@ const colors = {
     navyLight: "334155",
     primary: "0284C7",
     success: "059669",
+    amber: "D97706",
+    rose: "E11D48",
     zebra: "F8FAFC",
     white: "FFFFFF",
     totalRow: "E2E8F0",
@@ -101,8 +104,8 @@ function applyTotalStyle(row, colCount = 8) {
     row.height = 26;
 }
 
-function currencyFormat(cell) {
-    cell.numFmt = "₹#,##0.00";
+function currencyFormat(cell, symbol = "₹") {
+    cell.numFmt = `"${symbol}"#,##0.00`;
     cell.alignment = { horizontal: "right", vertical: "middle" };
 }
 
@@ -124,46 +127,59 @@ function autoFit(worksheet) {
 }
 
 /**
- * Complete multi-sheet Excel Report Generator
+ * Complete multi-sheet Excel Report Generator with Dynamic Currency Support
+ * & Explicit Inclusion of Refunds in Successful Transactions
  */
-export async function exportExcelInBrowser(rows, analysis, fileName = "InsightX_Report.xlsx") {
+export async function exportExcelInBrowser(rows, analysis, fileName = "InsightX_Report.xlsx", currencyCode = "INR") {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "InsightX AI";
     workbook.created = new Date();
 
+    const symbol = getCurrencySymbol(currencyCode);
     const monthlyList = analysis.monthly?.monthlyList || [];
     const paymentModes = analysis.payment?.paymentModes || {};
-    const totalTx = analysis.payment?.overview?.totalTransactions || 1;
+    const totalTx = analysis.payment?.overview?.totalTransactions || rows.length || 1;
     const platformMap = analysis.platform || {};
+
+    const ov = analysis.payment?.overview || {};
+    const totTxCount = ov.totalTransactions || rows.length;
+    const succTxCount = ov.successfulTransactions || 0;
+    const refTxCount = ov.refundedTransactions || 0;
+    const succSalesCount = ov.successfulSales !== undefined ? ov.successfulSales : Math.max(0, succTxCount - refTxCount);
+    const failTxCount = ov.failedTransactions || 0;
 
     // ==========================================
     // 1. EXECUTIVE SUMMARY SHEET
     // ==========================================
     const wsExec = workbook.addWorksheet("Executive Summary");
-    applySheetBanner(wsExec, "InsightX AI — Executive Business & Revenue Report", `Generated: ${new Date().toLocaleString("en-IN")} • Multi-Month Financial Intelligence`, 6);
+    applySheetBanner(wsExec, "InsightX AI — Executive Business & Revenue Report", `Generated: ${new Date().toLocaleString()} • Multi-Month Financial Intelligence (${currencyCode})`, 6);
     wsExec.addRow([]);
 
     let curRow = 4;
     applySectionHeader(wsExec, curRow, "1. KEY PERFORMANCE INDICATORS (CUMULATIVE)", 6);
     curRow++;
 
-    const kpiHeader = wsExec.addRow(["Operational Metric", "Volume", "", "Financial Metric", "Amount (₹)", "Status"]);
-    applyTableHeaders(kpiHeader, ["Operational Metric", "Volume", "", "Financial Metric", "Amount (₹)", "Status"]);
+    const kpiHeader = wsExec.addRow(["Operational Metric", "Volume", "Share (%)", "Financial Metric", `Amount (${symbol})`, "Status"]);
+    applyTableHeaders(kpiHeader, ["Operational Metric", "Volume", "Share (%)", "Financial Metric", `Amount (${symbol})`, "Status"]);
     curRow++;
 
     const kpiStart = curRow;
-    const r1 = wsExec.addRow(["Total Transactions", analysis.payment?.overview?.totalTransactions || 0, "", "Gross Revenue", analysis.payment?.revenue?.totalAmount || 0, "Completed"]);
-    const r2 = wsExec.addRow(["Successful Transactions", analysis.payment?.overview?.successfulTransactions || 0, "", "Refund Deductions", analysis.payment?.revenue?.refundAmount || 0, "Deducted"]);
-    const r3 = wsExec.addRow(["Successful Refunds", analysis.payment?.overview?.refundedTransactions || 0, "", "Net Realized Revenue", analysis.payment?.revenue?.netAmount || 0, "Settled"]);
-    wsExec.addRow(["Success Rate (%)", `${analysis.payment?.successRate || 0}%`, "", "Refund Rate (%)", `${analysis.payment?.refundRate || 0}%`, "Optimal"]);
+    const r1 = wsExec.addRow(["Total Transactions", totTxCount, "100.00%", "Gross Sales Revenue", analysis.payment?.revenue?.totalAmount || 0, "Completed"]);
+    const r2 = wsExec.addRow(["Total Successful Transactions (Sales + Refunds)", succTxCount, `${analysis.payment?.successRate || 0}%`, "Refund Deductions", analysis.payment?.revenue?.refundAmount || 0, "Deducted"]);
+    const r3 = wsExec.addRow(["  • Successful Customer Sales", succSalesCount, `${Number(((succSalesCount / totTxCount) * 100).toFixed(2))}%`, "Net Realized Revenue", analysis.payment?.revenue?.netAmount || 0, "Settled"]);
+    const r4 = wsExec.addRow(["  • Successful Customer Refunds", refTxCount, `${analysis.payment?.refundRate || 0}%`, "Average Ticket Size", analysis.payment?.averageAmount || 0, "Optimal"]);
+    const r5 = wsExec.addRow(["Failed Transactions", failTxCount, `${Number(((failTxCount / totTxCount) * 100).toFixed(2))}%`, "Overall Success Rate", `${analysis.payment?.successRate || 0}%`, "Reconciled"]);
 
     numberFormat(r1.getCell(2));
-    currencyFormat(r1.getCell(5));
+    currencyFormat(r1.getCell(5), symbol);
     numberFormat(r2.getCell(2));
-    currencyFormat(r2.getCell(5));
+    currencyFormat(r2.getCell(5), symbol);
     numberFormat(r3.getCell(2));
-    currencyFormat(r3.getCell(5));
+    currencyFormat(r3.getCell(5), symbol);
     r3.getCell(5).font = { bold: true, size: 11, color: { argb: colors.success } };
+    numberFormat(r4.getCell(2));
+    currencyFormat(r4.getCell(5), symbol);
+    numberFormat(r5.getCell(2));
 
     applyZebra(wsExec, kpiStart, wsExec.lastRow.number);
 
@@ -173,16 +189,16 @@ export async function exportExcelInBrowser(rows, analysis, fileName = "InsightX_
         curRow = wsExec.lastRow.number + 1;
         applySectionHeader(wsExec, curRow, "2. MONTHLY FINANCIAL PERFORMANCE SUMMARY", 6);
 
-        const mHead = wsExec.addRow(["Month", "Total Volume", "Successful Tx", "Gross Revenue", "Net Revenue", "Success Rate"]);
-        applyTableHeaders(mHead, ["Month", "Total Volume", "Successful Tx", "Gross Revenue", "Net Revenue", "Success Rate"]);
+        const mHead = wsExec.addRow(["Month", "Total Volume", "Successful Tx (Sales+Refunds)", `Gross Revenue (${symbol})`, `Net Revenue (${symbol})`, "Success Rate"]);
+        applyTableHeaders(mHead, ["Month", "Total Volume", "Successful Tx (Sales+Refunds)", `Gross Revenue (${symbol})`, `Net Revenue (${symbol})`, "Success Rate"]);
 
         const mStart = wsExec.lastRow.number + 1;
         monthlyList.forEach((m) => {
             const mR = wsExec.addRow([m.month, m.transactions, m.successfulTransactions, m.grossAmount, m.netAmount, `${m.successRate}%`]);
             numberFormat(mR.getCell(2));
             numberFormat(mR.getCell(3));
-            currencyFormat(mR.getCell(4));
-            currencyFormat(mR.getCell(5));
+            currencyFormat(mR.getCell(4), symbol);
+            currencyFormat(mR.getCell(5), symbol);
         });
         applyZebra(wsExec, mStart, wsExec.lastRow.number);
     }
@@ -219,19 +235,21 @@ export async function exportExcelInBrowser(rows, analysis, fileName = "InsightX_
     // ==========================================
     if (monthlyList.length > 0) {
         const wsMonthly = workbook.addWorksheet("Monthly Breakdown");
-        applySheetBanner(wsMonthly, "Monthly Financial Performance & Comparison Breakdown", "Month-by-month reconciliation of revenue, transaction volumes, and verified refund deductions", 9);
+        applySheetBanner(wsMonthly, "Monthly Financial Performance & Comparison Breakdown", `Month-by-month reconciliation of revenue, transaction volumes, and verified refund deductions (${currencyCode})`, 10);
         wsMonthly.addRow([]);
 
-        const monthCols = ["Billing Month", "Total Volume", "Successful Tx", "Successful Refunds", "Refund Amount (₹)", "Gross Revenue (₹)", "Net Revenue (₹)", "Success Rate (%)", "Top Channel"];
+        const monthCols = ["Billing Month", "Total Volume", "Successful Tx (Total)", "Successful Sales", "Successful Refunds", `Refund Amount (${symbol})`, `Gross Revenue (${symbol})`, `Net Revenue (${symbol})`, "Success Rate (%)", "Top Channel"];
         const mRowHead = wsMonthly.addRow(monthCols);
         applyTableHeaders(mRowHead, monthCols);
 
         const mDataStart = wsMonthly.lastRow.number + 1;
-        let totTx = 0, totSuc = 0, totRef = 0, totGross = 0, totRefAmt = 0, totNet = 0;
+        let totTx = 0, totSuc = 0, totSales = 0, totRef = 0, totGross = 0, totRefAmt = 0, totNet = 0;
 
         monthlyList.forEach((m) => {
+            const mSales = m.successfulSales !== undefined ? m.successfulSales : Math.max(0, m.successfulTransactions - m.refundedTransactions);
             totTx += m.transactions;
             totSuc += m.successfulTransactions;
+            totSales += mSales;
             totRef += m.refundedTransactions;
             totGross += m.grossAmount;
             totRefAmt += m.refundAmount;
@@ -241,6 +259,7 @@ export async function exportExcelInBrowser(rows, analysis, fileName = "InsightX_
                 m.month,
                 m.transactions,
                 m.successfulTransactions,
+                mSales,
                 m.refundedTransactions,
                 m.refundAmount,
                 m.grossAmount,
@@ -251,22 +270,24 @@ export async function exportExcelInBrowser(rows, analysis, fileName = "InsightX_
             numberFormat(row.getCell(2));
             numberFormat(row.getCell(3));
             numberFormat(row.getCell(4));
-            currencyFormat(row.getCell(5));
-            currencyFormat(row.getCell(6));
-            currencyFormat(row.getCell(7));
+            numberFormat(row.getCell(5));
+            currencyFormat(row.getCell(6), symbol);
+            currencyFormat(row.getCell(7), symbol);
+            currencyFormat(row.getCell(8), symbol);
         });
 
         applyZebra(wsMonthly, mDataStart, wsMonthly.lastRow.number);
 
         const cumSuccessRate = totTx > 0 ? Number(((totSuc / totTx) * 100).toFixed(2)) : 0;
-        const totalRow = wsMonthly.addRow(["CUMULATIVE TOTAL", totTx, totSuc, totRef, totRefAmt, totGross, totNet, `${cumSuccessRate}%`, "All Channels"]);
+        const totalRow = wsMonthly.addRow(["CUMULATIVE TOTAL", totTx, totSuc, totSales, totRef, totRefAmt, totGross, totNet, `${cumSuccessRate}%`, "All Channels"]);
         numberFormat(totalRow.getCell(2));
         numberFormat(totalRow.getCell(3));
         numberFormat(totalRow.getCell(4));
-        currencyFormat(totalRow.getCell(5));
-        currencyFormat(totalRow.getCell(6));
-        currencyFormat(totalRow.getCell(7));
-        applyTotalStyle(totalRow, 9);
+        numberFormat(totalRow.getCell(5));
+        currencyFormat(totalRow.getCell(6), symbol);
+        currencyFormat(totalRow.getCell(7), symbol);
+        currencyFormat(totalRow.getCell(8), symbol);
+        applyTotalStyle(totalRow, 10);
         autoFit(wsMonthly);
     }
 
@@ -278,34 +299,38 @@ export async function exportExcelInBrowser(rows, analysis, fileName = "InsightX_
     wsDash.addRow([]);
 
     applySectionHeader(wsDash, 4, "1. FINANCIAL METRICS", 4);
-    const fHead = wsDash.addRow(["Financial Metric", "Value (₹)", "Category", ""]);
-    applyTableHeaders(fHead, ["Financial Metric", "Value (₹)", "Category", ""]);
+    const fHead = wsDash.addRow(["Financial Metric", `Value (${symbol})`, "Category", ""]);
+    applyTableHeaders(fHead, ["Financial Metric", `Value (${symbol})`, "Category", ""]);
 
     const fStart = wsDash.lastRow.number + 1;
     const rev = analysis.payment?.revenue || {};
-    const dR1 = wsDash.addRow(["Gross Revenue", rev.totalAmount || 0, "Gross Settlement", ""]);
+    const dR1 = wsDash.addRow(["Gross Revenue (Sales)", rev.totalAmount || 0, "Gross Settlement", ""]);
     const dR2 = wsDash.addRow(["Refund Deductions", rev.refundAmount || 0, "Successful Refunds", ""]);
     const dR3 = wsDash.addRow(["Net Realized Revenue", rev.netAmount || 0, "Net Settled Revenue", ""]);
-    currencyFormat(dR1.getCell(2));
-    currencyFormat(dR2.getCell(2));
-    currencyFormat(dR3.getCell(2));
+    currencyFormat(dR1.getCell(2), symbol);
+    currencyFormat(dR2.getCell(2), symbol);
+    currencyFormat(dR3.getCell(2), symbol);
     applyZebra(wsDash, fStart, wsDash.lastRow.number);
 
     wsDash.addRow([]);
     const opRow = wsDash.lastRow.number + 1;
-    applySectionHeader(wsDash, opRow, "2. OPERATIONAL VOLUME & SUCCESS", 4);
+    applySectionHeader(wsDash, opRow, "2. OPERATIONAL VOLUME & SUCCESS BREAKDOWN", 4);
     const oHead = wsDash.addRow(["Operational Metric", "Volume / Rate", "Benchmark", ""]);
     applyTableHeaders(oHead, ["Operational Metric", "Volume / Rate", "Benchmark", ""]);
 
     const oStart = wsDash.lastRow.number + 1;
-    const ov = analysis.payment?.overview || {};
-    const o1 = wsDash.addRow(["Total Transactions", ov.totalTransactions || 0, "100%", ""]);
-    const o2 = wsDash.addRow(["Successful Transactions", ov.successfulTransactions || 0, "Completed", ""]);
-    const o3 = wsDash.addRow(["Successful Refunds", ov.refundedTransactions || 0, "Settled Refunds", ""]);
-    const o4 = wsDash.addRow(["Overall Success Rate", `${analysis.payment?.successRate || 0}%`, "Optimal Target > 85%", ""]);
+    const o1 = wsDash.addRow(["Total Transactions", totTxCount, "100%", ""]);
+    const o2 = wsDash.addRow(["Total Successful Transactions (Sales + Refunds)", succTxCount, `${analysis.payment?.successRate || 0}%`, ""]);
+    const o3 = wsDash.addRow(["  • Successful Customer Sales", succSalesCount, "Completed Sales", ""]);
+    const o4 = wsDash.addRow(["  • Successful Customer Refunds", refTxCount, "Completed Refunds", ""]);
+    const o5 = wsDash.addRow(["Failed Transactions", failTxCount, "Declined / Failed", ""]);
+    const o6 = wsDash.addRow(["Overall Success Rate", `${analysis.payment?.successRate || 0}%`, "Sales + Refunds Included", ""]);
+
     numberFormat(o1.getCell(2));
     numberFormat(o2.getCell(2));
     numberFormat(o3.getCell(2));
+    numberFormat(o4.getCell(2));
+    numberFormat(o5.getCell(2));
     applyZebra(wsDash, oStart, wsDash.lastRow.number);
     autoFit(wsDash);
 
@@ -338,17 +363,17 @@ export async function exportExcelInBrowser(rows, analysis, fileName = "InsightX_
     const revRowNum = wsPay.lastRow.number + 1;
     applySectionHeader(wsPay, revRowNum, "2. FINANCIAL REVENUE RECONCILIATION", 4);
 
-    const revHead = wsPay.addRow(["Financial Component", "Amount (₹)", "Description", ""]);
-    applyTableHeaders(revHead, ["Financial Component", "Amount (₹)", "Description", ""]);
+    const revHead = wsPay.addRow(["Financial Component", `Amount (${symbol})`, "Description", ""]);
+    applyTableHeaders(revHead, ["Financial Component", `Amount (${symbol})`, "Description", ""]);
 
     const revStart = wsPay.lastRow.number + 1;
     const rev1 = wsPay.addRow(["Gross Revenue (Sales)", rev.totalAmount || 0, "Total settled customer sales", ""]);
     const rev2 = wsPay.addRow(["Less: Refund Deductions", rev.refundAmount || 0, "Verified successful customer refunds", ""]);
     const rev3 = wsPay.addRow(["Net Realized Revenue", rev.netAmount || 0, "Net settled amount to merchant account", ""]);
 
-    currencyFormat(rev1.getCell(2));
-    currencyFormat(rev2.getCell(2));
-    currencyFormat(rev3.getCell(2));
+    currencyFormat(rev1.getCell(2), symbol);
+    currencyFormat(rev2.getCell(2), symbol);
+    currencyFormat(rev3.getCell(2), symbol);
     applyZebra(wsPay, revStart, wsPay.lastRow.number);
     applyTotalStyle(rev3, 4);
     autoFit(wsPay);
@@ -381,37 +406,17 @@ export async function exportExcelInBrowser(rows, analysis, fileName = "InsightX_
         autoFit(wsDev);
     }
 
-    // ==========================================
-    // 6. RAW DATA SHEET
-    // ==========================================
-    if (rows && rows.length > 0) {
-        const wsRaw = workbook.addWorksheet("Raw Data");
-        const headers = Object.keys(rows[0]);
-        const rHead = wsRaw.addRow(headers);
-        applyTableHeaders(rHead, headers);
-
-        const rStart = wsRaw.lastRow.number + 1;
-        rows.slice(0, 5000).forEach((r) => {
-            const vals = headers.map((h) => (r[h] !== undefined ? r[h] : ""));
-            wsRaw.addRow(vals);
-        });
-        applyZebra(wsRaw, rStart, wsRaw.lastRow.number);
-        autoFit(wsRaw);
-    }
-
-    // Write to browser buffer and download
+    // Generate and trigger download in browser
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     });
-
-    const cleanFileName = fileName.endsWith(".xlsx") ? fileName : `${fileName}.xlsx`;
-    const url = window.URL.createObjectURL(blob);
+    const downloadUrl = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = cleanFileName;
+    a.href = downloadUrl;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    window.URL.revokeObjectURL(downloadUrl);
 }

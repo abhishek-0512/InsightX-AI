@@ -105,6 +105,7 @@ exports.analyze = (rows = []) => {
             // Only SUCCESSFUL refunds are counted towards refund metrics
             if (isSuccess) {
                 refundedTransactions++;
+                successfulTransactions++;
                 refundAmount += amount;
             } else {
                 // Failed refunds are counted as failed transactions
