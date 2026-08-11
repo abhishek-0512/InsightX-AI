@@ -2,7 +2,7 @@ import { FaChartBar, FaBolt, FaCoins, FaGlobe } from "react-icons/fa";
 import { useAnalysis } from "../context/AnalysisContext";
 
 function Navbar() {
-    const { currency, setCurrency, availableCurrencies, currencySymbol } = useAnalysis();
+    const { currency, setCurrency, availableCurrencies, currencySymbol, exchangeRateBadge, baseCurrency } = useAnalysis();
 
     return (
         <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/85 border-b border-slate-800/80 shadow-md">
@@ -35,9 +35,16 @@ function Navbar() {
                             {currencySymbol}
                         </div>
                         <div className="flex flex-col">
-                            <label htmlFor="currency-select" className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">
-                                Currency
-                            </label>
+                            <div className="flex items-center gap-1.5">
+                                <label htmlFor="currency-select" className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">
+                                    Currency
+                                </label>
+                                {exchangeRateBadge && (
+                                    <span className="text-[9px] font-bold text-cyan-400 bg-cyan-500/10 px-1 rounded border border-cyan-500/20">
+                                        FX Active
+                                    </span>
+                                )}
+                            </div>
                             <select
                                 id="currency-select"
                                 value={currency}

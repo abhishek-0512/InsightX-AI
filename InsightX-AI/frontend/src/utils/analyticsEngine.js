@@ -5,7 +5,7 @@ import {
     sortMonthsChronologically,
     detectDatasetDateFormat
 } from "./dateParser";
-import { formatCurrency, getCurrencySymbol } from "./currency";
+import { formatCurrency, getCurrencySymbol, convertCurrency, detectDatasetCurrency } from "./currency";
 
 function getColumnValue(row, possibleKeys) {
     if (!row) return null;
@@ -67,32 +67,32 @@ const modeKeys = [
     "method"
 ];
 
+const platformKeys = [
+    "platform",
+    "device",
+    "device_name",
+    "os",
+    "app_platform",
+    "client_platform",
+    "browser"
+];
+
 const dateKeys = [
     "created_at",
     "entry_time",
-    "date",
     "transaction_date",
-    "createdat",
-    "payment_date",
+    "date",
+    "updated_at",
     "timestamp",
-    "txn_date",
-    "order_date",
-    "settlement_date",
-    "datetime",
-    "time"
+    "txn_time",
+    "payment_date"
 ];
 
-const platformKeys = [
-    "platform",
-    "device_name",
-    "device",
-    "os",
-    "browser",
-    "source",
-    "client"
-];
-
-export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCode = "INR") {
+/**
+ * Pure client-side high-accuracy analytics engine with Real-Time FX Conversion
+ * & Multi-Month aggregation.
+ */
+export function computeAnalytics(rows = [], dayFirstOverride = null, targetCurrencyCode = "INR", baseCurrencyCode = null) {
     const totalTransactions = rows.length;
 
     // Detect dataset date format if not explicitly passed
@@ -102,14 +102,18 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
 
     const dayFirst = detectedFormat.dayFirst;
 
+    // Detect dataset base currency if not explicitly provided
+    const baseCurrency = baseCurrencyCode || detectDatasetCurrency(rows) || "INR";
+    const targetCurrency = targetCurrencyCode || "INR";
+
     let successfulSales = 0;
     let successfulTransactions = 0; // Total successful transactions (sales + successful refunds)
     let failedTransactions = 0;     // Total failed transactions (failed sales + failed refunds)
     let refundedTransactions = 0;   // Successful refunds
     let failedRefundTransactions = 0; // Failed refund attempts
 
-    let totalAmount = 0; // Gross Revenue from successful sales
-    let refundAmount = 0; // Successful refunds deductions
+    let totalAmount = 0; // Converted Gross Revenue from successful sales
+    let refundAmount = 0; // Converted Successful refunds deductions
 
     const paymentModes = {};
     const monthlyMap = {};
@@ -117,7 +121,8 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
     const platformMap = {};
 
     rows.forEach((row) => {
-        const amount = Number(getColumnValue(row, amountKeys)) || 0;
+        const rawAmount = Number(getColumnValue(row, amountKeys)) || 0;
+        const amount = convertCurrency(rawAmount, baseCurrency, targetCurrency);
 
         const isRefundVal = getColumnValue(row, refundKeys);
         const orderId = String(getColumnValue(row, ["order_id", "orderid", "reference_id"]) || "").toLowerCase();
@@ -307,10 +312,10 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
     // Generate AI Summary Insights with dynamic currency
     const aiSummary = [];
     aiSummary.push(`Total of ${totalTransactions.toLocaleString()} transaction record(s) analyzed.`);
-    aiSummary.push(`Net Revenue: ${formatCurrency(netAmount, currencyCode)} (Gross: ${formatCurrency(grossAmount, currencyCode)}) with an overall ${successRate}% success rate across all ${successfulTransactions.toLocaleString()} successful transactions (${successfulSales.toLocaleString()} sales, ${refundedTransactions.toLocaleString()} refunds).`);
+    aiSummary.push(`Net Revenue: ${formatCurrency(netAmount, targetCurrency)} (Gross: ${formatCurrency(grossAmount, targetCurrency)}) with an overall ${successRate}% success rate across all ${successfulTransactions.toLocaleString()} successful operations (${successfulSales.toLocaleString()} sales, ${refundedTransactions.toLocaleString()} refunds).`);
 
     if (refundedTransactions > 0) {
-        aiSummary.push(`${refundedTransactions.toLocaleString()} successful refund(s) totaling ${formatCurrency(finalRefundAmount, currencyCode)} (${refundRate}% refund rate). Failed refund attempts are safely separated.`);
+        aiSummary.push(`${refundedTransactions.toLocaleString()} successful refund(s) totaling ${formatCurrency(finalRefundAmount, targetCurrency)} (${refundRate}% refund rate). Failed refund attempts are safely separated.`);
     } else {
         aiSummary.push(`No successful refund transactions detected in this selection.`);
     }
@@ -327,7 +332,7 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
     if (monthlyList.length > 1) {
         const peak = [...monthlyList].sort((a, b) => b.netAmount - a.netAmount)[0];
         if (peak) {
-            aiSummary.push(`Cumulative Multi-Month Analysis: ${monthlyList.length} distinct months detected. Peak month by net revenue is ${peak.month} (${formatCurrency(peak.netAmount, currencyCode)} net).`);
+            aiSummary.push(`Cumulative Multi-Month Analysis: ${monthlyList.length} distinct months detected. Peak month by net revenue is ${peak.month} (${formatCurrency(peak.netAmount, targetCurrency)} net).`);
         }
     }
 
@@ -339,26 +344,32 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
                 successfulTransactions,
                 failedTransactions,
                 refundedTransactions,
-                failedRefundTransactions
+                failedRefundTransactions,
+                baseCurrency,
+                targetCurrency
             },
-            paymentModes,
             revenue: {
                 totalAmount: grossAmount,
                 refundAmount: finalRefundAmount,
-                netAmount
+                netAmount: netAmount
             },
+            averageAmount: successfulSales > 0 ? Number((grossAmount / successfulSales).toFixed(2)) : 0,
             successRate,
-            refundRate
+            refundRate,
+            paymentModes
         },
         monthly: {
+            available: monthlyList.length > 0,
+            totalMonths: monthlyList.length,
             monthly: formattedMonthlyMap,
-            monthlyList,
-            totalMonths: monthlyList.length
+            monthlyList
         },
-        daily: dailyMap,
         platform: platformMap,
+        daily: dailyMap,
         aiSummary,
-        detectedDateFormat: detectedFormat.detectedPattern,
-        currencyCode
+        quality: {
+            validRows: totalTransactions,
+            totalRows: totalTransactions
+        }
     };
 }

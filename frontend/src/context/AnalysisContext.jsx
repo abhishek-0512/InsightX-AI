@@ -12,7 +12,9 @@ import {
     CURRENCY_MAP,
     formatCurrency as formatCurrencyUtil,
     getCurrencySymbol,
-    detectDatasetCurrency
+    detectDatasetCurrency,
+    refreshLiveExchangeRates,
+    getExchangeRateLabel
 } from "../utils/currency";
 
 const AnalysisContext = createContext();
@@ -54,6 +56,11 @@ export function AnalysisProvider({ children }) {
     const [selectedMonths, setSelectedMonths] = useState([]); // array of strings e.g. ["Jun 2026", "Jul 2026"]
     const [customRange, setCustomRange] = useState({ startDate: "", endDate: "" });
 
+    // Fetch live FX rates on app startup in the background
+    useEffect(() => {
+        refreshLiveExchangeRates();
+    }, []);
+
     // Currency selection with localStorage persistence
     const [currency, setCurrencyState] = useState(() => {
         try {
@@ -75,6 +82,11 @@ export function AnalysisProvider({ children }) {
 
     // Extract all raw rows
     const rawRows = useMemo(() => fullData?.rows || [], [fullData]);
+
+    // Detect dataset base currency
+    const baseCurrency = useMemo(() => {
+        return detectDatasetCurrency(rawRows) || "INR";
+    }, [rawRows]);
 
     // Detect dataset date format (e.g. DD/MM vs MM/DD)
     const detectedDateFormat = useMemo(() => {
@@ -100,7 +112,7 @@ export function AnalysisProvider({ children }) {
         }
 
         const initialDateFormat = detectDatasetDateFormat(rows);
-        const initialAnalysis = computeAnalytics(rows, initialDateFormat.dayFirst, detectedCurr || currency);
+        const initialAnalysis = computeAnalytics(rows, initialDateFormat.dayFirst, detectedCurr || currency, detectedCurr || "INR");
 
         const payload = {
             ...data,
@@ -142,11 +154,11 @@ export function AnalysisProvider({ children }) {
         };
     }, [rawRows, dayFirst]);
 
-    // Full cumulative analysis across all rows
+    // Full cumulative analysis across all rows with FX conversion
     const cumulativeAnalysis = useMemo(() => {
         if (!rawRows.length) return null;
-        return computeAnalytics(rawRows, dayFirst, currency);
-    }, [rawRows, dayFirst, currency]);
+        return computeAnalytics(rawRows, dayFirst, currency, baseCurrency);
+    }, [rawRows, dayFirst, currency, baseCurrency]);
 
     // Filter rows according to selected date period / custom range / month(s)
     const filteredRows = useMemo(() => {
@@ -185,15 +197,17 @@ export function AnalysisProvider({ children }) {
 
             if (activePeriod === "1y") {
                 const cutoff = new Date(latest);
-                cutoff.setDate(cutoff.getDate() - 365);
+                cutoff.setFullYear(cutoff.getFullYear() - 1);
                 return d >= cutoff && d <= latest;
             }
 
             if (activePeriod === "custom") {
                 const start = customRange.startDate ? new Date(customRange.startDate) : null;
                 const end = customRange.endDate ? new Date(customRange.endDate + "T23:59:59") : null;
-                if (start && d < start) return false;
-                if (end && d > end) return false;
+
+                if (start && end) return d >= start && d <= end;
+                if (start) return d >= start;
+                if (end) return d <= end;
                 return true;
             }
 
@@ -201,41 +215,41 @@ export function AnalysisProvider({ children }) {
         });
     }, [rawRows, activePeriod, selectedMonths, customRange, dateMeta, dayFirst]);
 
-    // Compute dynamic analysis for active filtered dataset
-    const activeAnalysis = useMemo(() => {
-        if (!fullData) return null;
-        if (activePeriod === "all") {
-            return cumulativeAnalysis;
-        }
-        return computeAnalytics(filteredRows, dayFirst, currency);
-    }, [fullData, activePeriod, filteredRows, cumulativeAnalysis, dayFirst, currency]);
+    // Recomputed period analysis for filtered selection with FX conversion
+    const periodAnalysis = useMemo(() => {
+        if (!filteredRows.length) return null;
+        return computeAnalytics(filteredRows, dayFirst, currency, baseCurrency);
+    }, [filteredRows, dayFirst, currency, baseCurrency]);
 
-    // Derived result payload for components
+    // Result payload reflecting active period selection
     const resultPayload = useMemo(() => {
         if (!fullData) return null;
+
+        const effectiveAnalysis = (activePeriod === "all" || !periodAnalysis)
+            ? cumulativeAnalysis
+            : periodAnalysis;
+
         return {
             ...fullData,
-            analysis: activeAnalysis,
-            cumulativeAnalysis
+            analysis: effectiveAnalysis
         };
-    }, [fullData, activeAnalysis, cumulativeAnalysis]);
+    }, [fullData, cumulativeAnalysis, periodAnalysis, activePeriod]);
 
-    // Helper formatCurrency that uses active currency
-    const formatCurrency = (val, maxDigits = 2) => {
-        return formatCurrencyUtil(val, currency, maxDigits);
+    // Custom formatCurrency method
+    const formatCurrency = (val, maximumFractionDigits = 2) => {
+        return formatCurrencyUtil(val, currency, maximumFractionDigits);
     };
 
-    // Month selection helpers:
+    // Filter control helper handlers
     const selectSingleMonth = (monthName) => {
         setSelectedMonths([monthName]);
         setActivePeriod("months");
     };
 
     const toggleMonth = (monthName) => {
-        let updated;
+        let updated = [];
         if (activePeriod !== "months") {
             updated = [monthName];
-            setActivePeriod("months");
         } else {
             if (selectedMonths.includes(monthName)) {
                 updated = selectedMonths.filter((m) => m !== monthName);
@@ -278,6 +292,8 @@ export function AnalysisProvider({ children }) {
         setCustomRange({ startDate: "", endDate: "" });
     };
 
+    const exchangeRateBadge = currency !== baseCurrency ? getExchangeRateLabel(baseCurrency, currency) : null;
+
     return (
         <AnalysisContext.Provider
             value={{
@@ -301,9 +317,11 @@ export function AnalysisProvider({ children }) {
                 resetFilter,
                 currency,
                 setCurrency,
+                baseCurrency,
                 formatCurrency,
                 currencySymbol: getCurrencySymbol(currency),
                 availableCurrencies: CURRENCIES,
+                exchangeRateBadge,
                 dayFirst,
                 detectedDateFormat: detectedDateFormat.detectedPattern
             }}
