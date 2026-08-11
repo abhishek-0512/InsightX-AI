@@ -138,6 +138,7 @@ exports.analyze = (rows = []) => {
             month: key,
             transactions: item.transactions,
             successfulTransactions: item.successfulTransactions,
+            successfulSales: Math.max(0, item.successfulTransactions - item.refundedTransactions),
             failedTransactions: item.failedTransactions,
             refundedTransactions: item.refundedTransactions,
             amount: gross, // for backward compatibility
