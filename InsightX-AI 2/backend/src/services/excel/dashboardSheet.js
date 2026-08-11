@@ -26,15 +26,18 @@ module.exports = async (workbook, analysis) => {
     const revenue = dashboard.revenue || {};
     const performance = dashboard.performance || {};
 
+    const succSales = overview.successfulSales !== undefined ? overview.successfulSales : Math.max(0, (overview.successfulTransactions || 0) - (overview.refundedTransactions || 0));
+
     const rows = [
         ["Total Transactions", overview.totalTransactions || 0],
-        ["Successful Transactions", overview.successfulTransactions || 0],
+        ["Total Successful Transactions (Sales + Refunds)", overview.successfulTransactions || 0],
+        ["  • Successful Customer Sales", succSales],
+        ["  • Successful Customer Refunds", overview.refundedTransactions || 0],
         ["Failed Transactions", overview.failedTransactions || 0],
-        ["Successful Refunds", overview.refundedTransactions || 0],
         ["Gross Revenue", revenue.totalRevenue || revenue.totalAmount || 0],
         ["Refund Deductions", revenue.refundAmount || 0],
-        ["Net Revenue", revenue.netRevenue || revenue.netAmount || 0],
-        ["Success Rate (%)", performance.successRate || 0],
+        ["Net Realized Revenue", revenue.netRevenue || revenue.netAmount || 0],
+        ["Overall Success Rate (%)", performance.successRate || 0],
         ["Refund Rate (%)", performance.refundRate || 0],
         ["Top Payment Mode", dashboard.topPaymentMode ? dashboard.topPaymentMode[0] : "-"],
         ["Top Device", dashboard.topDevice ? dashboard.topDevice[0] : "-"],

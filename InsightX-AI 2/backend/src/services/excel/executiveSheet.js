@@ -67,20 +67,19 @@ module.exports = async (workbook, analysis) => {
     ]);
     perfHeaders.eachCell((cell) => styles.headerStyle(cell));
 
-    const ov = analysis.payment?.overview || {};
-    const rev = analysis.payment?.revenue || {};
-    const monthlyStats = analysis.monthly?.monthly || {};
-
-    const getM = (m, key) => (monthlyStats[m] ? monthlyStats[m][key] || 0 : "-");
+    const succSales = ov.successfulSales !== undefined ? ov.successfulSales : Math.max(0, (ov.successfulTransactions || 0) - (ov.refundedTransactions || 0));
 
     const perfRows = [
         ["Total Transactions", ov.totalTransactions || 0, getM(m1, "transactions"), getM(m2, "transactions"), getM(m3, "transactions"), "-", "-", "Steady"],
-        ["Total GMV (₹ Lakhs)", Number(((rev.totalAmount || 0) / 100000).toFixed(2)), getM(m1, "grossAmount") ? Number((getM(m1, "grossAmount") / 100000).toFixed(2)) : "-", getM(m2, "grossAmount") ? Number((getM(m2, "grossAmount") / 100000).toFixed(2)) : "-", getM(m3, "grossAmount") ? Number((getM(m3, "grossAmount") / 100000).toFixed(2)) : "-", "-", "-", "Steady"],
-        ["Average Transaction (₹)", Number(((rev.totalAmount || 0) / (ov.totalTransactions || 1)).toFixed(2)), "-", "-", "-", "-", "-", "Stable"],
-        ["Success Rate (%)", `${analysis.payment?.successRate || 0}%`, "-", "-", "-", "-", "-", "Stable"],
-        ["Successful Transactions", ov.successfulTransactions || 0, getM(m1, "successfulTransactions") || getM(m1, "success"), getM(m2, "successfulTransactions") || getM(m2, "success"), getM(m3, "successfulTransactions") || getM(m3, "success"), "-", "-", "Growing"],
+        ["Total Successful Transactions (Sales + Refunds)", ov.successfulTransactions || 0, getM(m1, "successfulTransactions") || getM(m1, "success"), getM(m2, "successfulTransactions") || getM(m2, "success"), getM(m3, "successfulTransactions") || getM(m3, "success"), "-", "-", "Reconciled"],
+        ["  • Successful Customer Sales", succSales, getM(m1, "successfulSales") || "-", getM(m2, "successfulSales") || "-", getM(m3, "successfulSales") || "-", "-", "-", "Growing"],
+        ["  • Successful Customer Refunds", ov.refundedTransactions || 0, getM(m1, "refundedTransactions"), getM(m2, "refundedTransactions"), getM(m3, "refundedTransactions"), "-", "-", "Optimal"],
         ["Failed Transactions", ov.failedTransactions || 0, getM(m1, "failedTransactions") || getM(m1, "failed"), getM(m2, "failedTransactions") || getM(m2, "failed"), getM(m3, "failedTransactions") || getM(m3, "failed"), "-", "-", "Stable"],
-        ["Successful Refunds", ov.refundedTransactions || 0, getM(m1, "refundedTransactions"), getM(m2, "refundedTransactions"), getM(m3, "refundedTransactions"), "-", "-", "Optimal"]
+        ["Total Gross GMV (₹ Lakhs)", Number(((rev.totalAmount || 0) / 100000).toFixed(2)), getM(m1, "grossAmount") ? Number((getM(m1, "grossAmount") / 100000).toFixed(2)) : "-", getM(m2, "grossAmount") ? Number((getM(m2, "grossAmount") / 100000).toFixed(2)) : "-", getM(m3, "grossAmount") ? Number((getM(m3, "grossAmount") / 100000).toFixed(2)) : "-", "-", "-", "Steady"],
+        ["Refund Deductions (₹)", rev.refundAmount || 0, getM(m1, "refundAmount") || "-", getM(m2, "refundAmount") || "-", getM(m3, "refundAmount") || "-", "-", "-", "Deducted"],
+        ["Net Realized Revenue (₹)", rev.netAmount || 0, getM(m1, "netAmount") || "-", getM(m2, "netAmount") || "-", getM(m3, "netAmount") || "-", "-", "-", "Settled"],
+        ["Average Transaction (₹)", Number(((rev.totalAmount || 0) / (ov.totalTransactions || 1)).toFixed(2)), "-", "-", "-", "-", "-", "Stable"],
+        ["Overall Success Rate (%)", `${analysis.payment?.successRate || 0}%`, "-", "-", "-", "-", "-", "Reconciled"]
     ];
 
     perfRows.forEach((r) => sheet.addRow(r));
