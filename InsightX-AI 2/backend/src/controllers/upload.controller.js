@@ -7,7 +7,6 @@ const { importDataset } = require("../config/db");
 
 exports.uploadFile = async (req, res) => {
     try {
-
         if (!req.file) {
             return res.status(400).json({
                 success: false,
@@ -21,18 +20,21 @@ exports.uploadFile = async (req, res) => {
             req.file.originalname
         );
 
-        // Create unique table name
-        const tableName =
-            path.parse(req.file.originalname).name
-                .replace(/[^a-zA-Z0-9]/g, "_")
-                .toLowerCase() +
-            "_" +
-            Date.now();
+        // Try storing data in MySQL (non-blocking if DB is offline)
+        try {
+            const tableName =
+                path.parse(req.file.originalname).name
+                    .replace(/[^a-zA-Z0-9]/g, "_")
+                    .toLowerCase() +
+                "_" +
+                Date.now();
 
-        // Store data in MySQL
-        await importDataset(tableName, parsed.rows);
+            await importDataset(tableName, parsed.rows);
+        } catch (dbErr) {
+            console.warn("⚠️ MySQL storage skipped or failed:", dbErr.message);
+        }
 
-        // Generate analytics
+        // Generate full dataset analytics
         const analysis = analytics.analyze(parsed.rows);
 
         // Generate Excel report
@@ -42,21 +44,22 @@ exports.uploadFile = async (req, res) => {
             analysis
         });
 
+        const reportFileName = path.basename(reportPath);
+
         return res.status(200).json({
             success: true,
             message: "Dataset analyzed successfully.",
-            reportPath: reportPath.replace(/\\/g, "/"),
-            analysis
+            reportPath: `/reports/${reportFileName}`,
+            reportFileName,
+            fileName: req.file.originalname,
+            analysis,
+            rows: parsed.rows
         });
-
     } catch (error) {
-
-        console.error(error);
-
+        console.error("Upload controller error:", error);
         return res.status(500).json({
             success: false,
             message: error.message
         });
-
     }
 };

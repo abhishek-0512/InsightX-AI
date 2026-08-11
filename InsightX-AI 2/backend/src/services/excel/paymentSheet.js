@@ -1,78 +1,63 @@
 const {
     titleStyle,
     headerStyle,
-    currencyStyle,
     autoFitColumns
 } = require("./styles");
 
 module.exports = async (workbook, analysis) => {
-
     const sheet = workbook.addWorksheet("Payment Analytics");
 
     // ---------- Title ----------
-
     sheet.mergeCells("A1:C1");
-    sheet.getCell("A1").value = "Payment Analytics";
-    titleStyle(sheet.getCell("A1"));
+    const titleCell = sheet.getCell("A1");
+    titleCell.value = "Payment Analytics";
+    titleStyle(titleCell);
 
     // ---------- Payment Mode Summary ----------
-
     sheet.addRow([]);
-    sheet.addRow(["Payment Mode", "Transactions"]);
+    const headerRow = sheet.addRow(["Payment Mode", "Transactions"]);
 
-    headerStyle(sheet.getCell("A3"));
-    headerStyle(sheet.getCell("B3"));
+    headerStyle(headerRow.getCell(1));
+    headerStyle(headerRow.getCell(2));
 
-    const paymentModes =
-        analysis.payment?.paymentModes || {};
+    const paymentModes = analysis.payment?.paymentModes || {};
 
-    Object.entries(paymentModes).forEach(
-        ([mode, count]) => {
-
-            sheet.addRow([
-                mode,
-                count
-            ]);
-
-        }
-    );
+    Object.entries(paymentModes).forEach(([mode, count]) => {
+        sheet.addRow([mode, count]);
+    });
 
     // ---------- Revenue ----------
+    let rowNumber = sheet.lastRow.number + 2;
 
-    let row = sheet.lastRow.number + 2;
+    const revenueHeader = sheet.getCell(`A${rowNumber}`);
+    revenueHeader.value = "Revenue Summary";
+    headerStyle(revenueHeader);
 
-    sheet.getCell(`A${row}`).value = "Revenue Summary";
-    headerStyle(sheet.getCell(`A${row}`));
-
-    row++;
-
-    sheet.addRow([
-        "Total Revenue",
+    const totalRevRow = sheet.addRow([
+        "Gross Revenue",
         analysis.payment?.revenue?.totalAmount || 0
     ]);
 
-    sheet.addRow([
-        "Refund Amount",
+    const refundRevRow = sheet.addRow([
+        "Refund Deductions",
         analysis.payment?.revenue?.refundAmount || 0
     ]);
 
-    sheet.addRow([
+    const netRevRow = sheet.addRow([
         "Net Revenue",
         analysis.payment?.revenue?.netAmount || 0
     ]);
 
-    currencyStyle(sheet.getCell(`B${row}`));
-    currencyStyle(sheet.getCell(`B${row + 1}`));
-    currencyStyle(sheet.getCell(`B${row + 2}`));
+    totalRevRow.getCell(2).numFmt = "₹#,##0.00";
+    refundRevRow.getCell(2).numFmt = "₹#,##0.00";
+    netRevRow.getCell(2).numFmt = "₹#,##0.00";
 
     // ---------- Success / Failure ----------
+    rowNumber = sheet.lastRow.number + 2;
 
-    row = sheet.lastRow.number + 2;
-
-    sheet.getCell(`A${row}`).value = "Transaction Summary";
-    headerStyle(sheet.getCell(`A${row}`));
-
-    row++;
+    const transactionHeader = sheet.getCell(`A${rowNumber}`);
+    transactionHeader.value = "Transaction Summary";
+    headerStyle(transactionHeader);
 
     sheet.addRow([
         "Successful",
@@ -85,7 +70,7 @@ module.exports = async (workbook, analysis) => {
     ]);
 
     sheet.addRow([
-        "Refunded",
+        "Successful Refunds",
         analysis.payment?.overview?.refundedTransactions || 0
     ]);
 
@@ -100,22 +85,18 @@ module.exports = async (workbook, analysis) => {
     ]);
 
     // ---------- Borders ----------
-
     sheet.eachRow((r) => {
-
-        r.eachCell((cell) => {
-
-            cell.border = {
-                top: { style: "thin" },
-                left: { style: "thin" },
-                bottom: { style: "thin" },
-                right: { style: "thin" }
-            };
-
-        });
-
+        if (r.hasValues) {
+            r.eachCell({ includeEmpty: false }, (cell) => {
+                cell.border = {
+                    top: { style: "thin" },
+                    left: { style: "thin" },
+                    bottom: { style: "thin" },
+                    right: { style: "thin" }
+                };
+            });
+        }
     });
 
     autoFitColumns(sheet);
-
 };

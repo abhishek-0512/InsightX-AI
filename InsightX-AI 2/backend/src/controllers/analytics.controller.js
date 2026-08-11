@@ -29,7 +29,8 @@ exports.analyzeFile = async (req, res) => {
                 totalColumns: parsedData.columnCount
             },
 
-            analysis
+            analysis,
+            rows: parsedData.rows
         });
 
     } catch (error) {
