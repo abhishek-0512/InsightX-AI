@@ -296,7 +296,7 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
             amount: mGross,
             grossAmount: mGross,
             refundAmount: mRefund,
-            netAmount: mGross, // Direct total revenue without deduction
+            netAmount: Number(Math.max(0, mGross - mRefund).toFixed(2)),
             successRate: mSuccessRate,
             refundRate: mRefundRate,
             paymentModes: item.paymentModes,
@@ -315,7 +315,7 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
     aiSummary.push(`Total Successful Revenue across all ${successfulTransactions.toLocaleString()} completed transactions: ${formatCurrency(finalRevenue, currencyCode)} with an overall ${successRate}% success rate.`);
 
     if (refundedTransactions > 0) {
-        aiSummary.push(`${refundedTransactions.toLocaleString()} refund transactions recorded totaling ${formatCurrency(finalRefundAmount, currencyCode)} (${refundRate}% of total transactions).`);
+        aiSummary.push(`${refundedTransactions.toLocaleString()} refund transactions recorded totaling ${formatCurrency(finalRefundAmount, currencyCode)} (${refundRate}% of total transactions), resulting in a Net Realized Revenue of ${formatCurrency(Math.max(0, finalRevenue - finalRefundAmount), currencyCode)}.`);
     } else {
         aiSummary.push(`No refund transactions detected in this selection.`);
     }
@@ -350,7 +350,7 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
                 totalAmount: finalRevenue,
                 grossAmount: finalRevenue,
                 refundAmount: finalRefundAmount,
-                netAmount: finalRevenue, // direct total without deduction
+                netAmount: Number(Math.max(0, finalRevenue - finalRefundAmount).toFixed(2)),
                 attemptedSalesAmount: Number(attemptedSalesAmount.toFixed(2)),
                 failedSalesAmount: Number(failedSalesAmount.toFixed(2)),
                 totalDatasetVolume: Number(totalDatasetVolume.toFixed(2))

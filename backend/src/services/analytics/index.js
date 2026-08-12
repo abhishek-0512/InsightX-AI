@@ -5,6 +5,11 @@ const device = require("./device");
 const monthly = require("./monthly");
 const location = require("./location");
 const dashboard = require("./dashboard");
+const summary = require("./summary");
+const quality = require("./quality");
+const numeric = require("./numeric");
+const categorical = require("./categorical");
+const datetime = require("./datetime");
 const detector = require("./detector");
 const { parseDate, formatMonthYear, sortMonthsChronologically } = require("../../utils/dateParser");
 
@@ -50,13 +55,18 @@ function getDateMetadata(rows = []) {
     };
 }
 
-exports.analyze = (rows) => {
+exports.analyze = (rows = []) => {
     const paymentAnalysis = payment.analyze(rows);
     const refundAnalysis = refund.analyze(rows);
     const failureAnalysis = failure.analyze(rows);
     const deviceAnalysis = device.analyze(rows);
     const monthlyAnalysis = monthly.analyze(rows);
     const locationAnalysis = location.analyze(rows);
+    const summaryAnalysis = summary.generateSummary(rows);
+    const qualityAnalysis = quality.analyze(rows);
+    const numericAnalysis = numeric.analyze(rows);
+    const categoricalAnalysis = categorical.analyze(rows);
+    const datetimeAnalysis = datetime.analyze(rows);
     const dateMeta = getDateMetadata(rows);
 
     const dashboardAnalysis = dashboard.analyze({
@@ -76,6 +86,11 @@ exports.analyze = (rows) => {
         monthly: monthlyAnalysis,
         location: locationAnalysis,
         dashboard: dashboardAnalysis,
+        summary: summaryAnalysis,
+        quality: qualityAnalysis,
+        numeric: numericAnalysis,
+        categorical: categoricalAnalysis,
+        datetime: datetimeAnalysis,
         dateMeta
     };
 };

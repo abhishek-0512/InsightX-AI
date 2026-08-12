@@ -126,7 +126,7 @@ exports.analyze = (rows = []) => {
         const gross = Number(item.amount.toFixed(2));
         const sales = Number((item.salesAmount || (item.amount - item.refundAmount)).toFixed(2));
         const refund = Number(item.refundAmount.toFixed(2));
-        const net = Number(Math.max(0, sales - refund).toFixed(2));
+        const net = Number(Math.max(0, gross - refund).toFixed(2));
         const successRate = item.transactions > 0
             ? Number(((item.successfulTransactions / item.transactions) * 100).toFixed(2))
             : 0;

@@ -50,7 +50,16 @@ module.exports = async (workbook, analysis) => {
     summaryTitle.alignment = { horizontal: "left", vertical: "middle" };
     row++;
 
-    const months = analysis.monthly?.monthlyList ? analysis.monthly.monthlyList.map(m => m.month) : Object.keys(analysis.monthly?.monthly || {});
+    const ov = analysis.payment?.overview || {};
+    const rev = analysis.payment?.revenue || {};
+    const mList = analysis.monthly?.monthlyList || [];
+    const getM = (mName, field) => {
+        const found = mList.find(m => m.month === mName);
+        if (!found) return "-";
+        return found[field] !== undefined ? found[field] : "-";
+    };
+
+    const months = mList.length ? mList.map(m => m.month) : Object.keys(analysis.monthly?.monthly || {});
     const m1 = months[0] || "Month 1";
     const m2 = months[1] || "Month 2";
     const m3 = months[2] || "Month 3";
@@ -142,12 +151,22 @@ module.exports = async (workbook, analysis) => {
             styles.headerStyle(growthHeaders.getCell(i));
         }
 
+<<<<<<< HEAD
         for (let i = 0; i < months.length - 1; i++) {
             const curM = monthlyStats[months[i]] || {};
             const nextM = monthlyStats[months[i + 1]] || {};
             const txnGrowth = curM.transactions ? (((nextM.transactions - curM.transactions) / curM.transactions) * 100).toFixed(1) + "%" : "-";
             const gmvGrowth = curM.grossAmount ? (((nextM.grossAmount - curM.grossAmount) / curM.grossAmount) * 100).toFixed(1) + "%" : "-";
             const rateDiff = (nextM.successRate - curM.successRate).toFixed(1) + "%";
+=======
+        const monthlyStats = analysis.monthly?.monthly || {};
+        for (let i = 0; i < months.length - 1; i++) {
+            const curM = monthlyStats[months[i]] || mList.find(m => m.month === months[i]) || {};
+            const nextM = monthlyStats[months[i + 1]] || mList.find(m => m.month === months[i + 1]) || {};
+            const txnGrowth = curM.transactions ? (((nextM.transactions - curM.transactions) / curM.transactions) * 100).toFixed(1) + "%" : "-";
+            const gmvGrowth = curM.grossAmount ? (((nextM.grossAmount - curM.grossAmount) / curM.grossAmount) * 100).toFixed(1) + "%" : "-";
+            const rateDiff = ((nextM.successRate || 0) - (curM.successRate || 0)).toFixed(1) + "%";
+>>>>>>> 0cbbd02 (feat: enhance revenue reconciliation, include refunds in successful transactions, and fix analytics calculations)
             sheet.addRow([`${months[i]} - ${months[i + 1]}`, txnGrowth, gmvGrowth, rateDiff]);
         }
     }

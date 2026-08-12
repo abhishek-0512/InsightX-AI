@@ -66,14 +66,14 @@ function KPICards() {
             badge: "All Operations"
         },
         {
-            title: "Total Successful Revenue",
+            title: "Gross Successful Revenue",
             value: formatCurrency(totalRevenue),
             icon: <FaWallet className="text-emerald-400" size={18} />,
             iconBg: "bg-emerald-500/10 border-emerald-500/20",
             textColor: "text-emerald-400",
-            primarySub: `Across all ${successTx.toLocaleString()} successful transactions`,
-            secondarySub: `No deductions applied (${currencySymbol})`,
-            badge: `Full Revenue (${currencySymbol})`
+            primarySub: `Total volume across all ${successTx.toLocaleString()} successful transactions`,
+            secondarySub: `Net Revenue: ${formatCurrency(Math.max(0, totalRevenue - refundAmount))} (Gross - Refund)`,
+            badge: `Gross (${currencySymbol})`
         },
         {
             title: "Refund Transactions",
@@ -83,7 +83,7 @@ function KPICards() {
             textColor: "text-amber-400",
             primarySub: `Total Refund Value: ${formatCurrency(refundAmount)}`,
             secondarySub: `${refundRate}% of total transactions`,
-            badge: "22 Operations"
+            badge: `${refundedTx.toLocaleString()} Operations`
         }
     ];
 

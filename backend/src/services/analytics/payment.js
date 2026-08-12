@@ -10,6 +10,10 @@ exports.analyze = (rows = []) => {
 
     let totalAmount = 0; // Gross Revenue
     let refundAmount = 0; // Successful Refunds Amount
+<<<<<<< HEAD
+=======
+    let salesAmount = 0;
+>>>>>>> 0cbbd02 (feat: enhance revenue reconciliation, include refunds in successful transactions, and fix analytics calculations)
 
     const paymentModes = {};
 
@@ -144,7 +148,7 @@ exports.analyze = (rows = []) => {
     const grossRev = Number(totalAmount.toFixed(2));
     const refundRev = Number(refundAmount.toFixed(2));
     const salesRev = Number((salesAmount || (totalAmount - refundAmount)).toFixed(2));
-    const netRev = Number(Math.max(0, salesRev - refundRev).toFixed(2));
+    const netRev = Number(Math.max(0, grossRev - refundRev).toFixed(2));
 
     const grossAmount = Number(totalAmount.toFixed(2));
     const finalRefundAmount = Number(refundAmount.toFixed(2));
