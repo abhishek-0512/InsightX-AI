@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useMemo, useEffect } from "react";
+import { createContext, useContext, useState, useMemo } from "react";
 import {
     parseDate,
     formatMonthYear,
@@ -12,9 +12,7 @@ import {
     CURRENCY_MAP,
     formatCurrency as formatCurrencyUtil,
     getCurrencySymbol,
-    detectDatasetCurrency,
-    refreshLiveExchangeRates,
-    getExchangeRateLabel
+    detectDatasetCurrency
 } from "../utils/currency";
 
 const AnalysisContext = createContext();
@@ -56,11 +54,6 @@ export function AnalysisProvider({ children }) {
     const [selectedMonths, setSelectedMonths] = useState([]); // array of strings e.g. ["Jun 2026", "Jul 2026"]
     const [customRange, setCustomRange] = useState({ startDate: "", endDate: "" });
 
-    // Fetch live FX rates on app startup in the background
-    useEffect(() => {
-        refreshLiveExchangeRates();
-    }, []);
-
     // Currency selection with localStorage persistence
     const [currency, setCurrencyState] = useState(() => {
         try {
@@ -82,11 +75,6 @@ export function AnalysisProvider({ children }) {
 
     // Extract all raw rows
     const rawRows = useMemo(() => fullData?.rows || [], [fullData]);
-
-    // Detect dataset base currency
-    const baseCurrency = useMemo(() => {
-        return detectDatasetCurrency(rawRows) || "INR";
-    }, [rawRows]);
 
     // Detect dataset date format (e.g. DD/MM vs MM/DD)
     const detectedDateFormat = useMemo(() => {
@@ -112,7 +100,7 @@ export function AnalysisProvider({ children }) {
         }
 
         const initialDateFormat = detectDatasetDateFormat(rows);
-        const initialAnalysis = computeAnalytics(rows, initialDateFormat.dayFirst, detectedCurr || currency, detectedCurr || "INR");
+        const initialAnalysis = computeAnalytics(rows, initialDateFormat.dayFirst, detectedCurr || currency);
 
         const payload = {
             ...data,
@@ -154,11 +142,11 @@ export function AnalysisProvider({ children }) {
         };
     }, [rawRows, dayFirst]);
 
-    // Full cumulative analysis across all rows with FX conversion
+    // Full cumulative analysis across all rows
     const cumulativeAnalysis = useMemo(() => {
         if (!rawRows.length) return null;
-        return computeAnalytics(rawRows, dayFirst, currency, baseCurrency);
-    }, [rawRows, dayFirst, currency, baseCurrency]);
+        return computeAnalytics(rawRows, dayFirst, currency);
+    }, [rawRows, dayFirst, currency]);
 
     // Filter rows according to selected date period / custom range / month(s)
     const filteredRows = useMemo(() => {
@@ -215,11 +203,11 @@ export function AnalysisProvider({ children }) {
         });
     }, [rawRows, activePeriod, selectedMonths, customRange, dateMeta, dayFirst]);
 
-    // Recomputed period analysis for filtered selection with FX conversion
+    // Recomputed period analysis for filtered selection
     const periodAnalysis = useMemo(() => {
         if (!filteredRows.length) return null;
-        return computeAnalytics(filteredRows, dayFirst, currency, baseCurrency);
-    }, [filteredRows, dayFirst, currency, baseCurrency]);
+        return computeAnalytics(filteredRows, dayFirst, currency);
+    }, [filteredRows, dayFirst, currency]);
 
     // Result payload reflecting active period selection
     const resultPayload = useMemo(() => {
@@ -292,8 +280,6 @@ export function AnalysisProvider({ children }) {
         setCustomRange({ startDate: "", endDate: "" });
     };
 
-    const exchangeRateBadge = currency !== baseCurrency ? getExchangeRateLabel(baseCurrency, currency) : null;
-
     return (
         <AnalysisContext.Provider
             value={{
@@ -317,11 +303,9 @@ export function AnalysisProvider({ children }) {
                 resetFilter,
                 currency,
                 setCurrency,
-                baseCurrency,
                 formatCurrency,
                 currencySymbol: getCurrencySymbol(currency),
                 availableCurrencies: CURRENCIES,
-                exchangeRateBadge,
                 dayFirst,
                 detectedDateFormat: detectedDateFormat.detectedPattern
             }}
