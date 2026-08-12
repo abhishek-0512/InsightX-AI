@@ -1,4 +1,4 @@
-import { FaExchangeAlt, FaCheckCircle, FaWallet, FaCoins } from "react-icons/fa";
+import { FaExchangeAlt, FaCheckCircle, FaWallet, FaUndoAlt } from "react-icons/fa";
 import { useAnalysis } from "../context/AnalysisContext";
 
 function KPICards() {
@@ -24,12 +24,8 @@ function KPICards() {
     const successRate = analysis?.payment?.successRate || 0;
     const refundRate = analysis?.payment?.refundRate || 0;
 
-    const grossRevenue = analysis?.payment?.revenue?.totalAmount || 0;
+    const totalRevenue = analysis?.payment?.revenue?.totalAmount || 0;
     const refundAmount = analysis?.payment?.revenue?.refundAmount || 0;
-    const netRevenue =
-        analysis?.payment?.revenue?.netAmount !== undefined
-            ? analysis.payment.revenue.netAmount
-            : Math.max(0, grossRevenue - (2 * refundAmount));
 
     let periodLabel = "Cumulative (All Months)";
     if (activePeriod === "months") {
@@ -55,8 +51,8 @@ function KPICards() {
             icon: <FaExchangeAlt className="text-cyan-400" size={18} />,
             iconBg: "bg-cyan-500/10 border-cyan-500/20",
             textColor: "text-cyan-400",
-            primarySub: `${successTx.toLocaleString()} Successful (${successSales.toLocaleString()} Sales + ${refundedTx.toLocaleString()} Refunds)`,
-            secondarySub: `${failedTx.toLocaleString()} Failed Attempts`,
+            primarySub: `${successTx.toLocaleString()} Successful | ${failedTx.toLocaleString()} Failed`,
+            secondarySub: `${successSales.toLocaleString()} Sales + ${refundedTx.toLocaleString()} Refunds`,
             badge: periodLabel
         },
         {
@@ -66,28 +62,28 @@ function KPICards() {
             iconBg: "bg-emerald-500/10 border-emerald-500/20",
             textColor: "text-emerald-400",
             primarySub: `${successTx.toLocaleString()} of ${totalTx.toLocaleString()} Completed`,
-            secondarySub: `${((100 - successRate) || 0).toFixed(1)}% decline drop-off`,
-            badge: "Sales + Refunds"
+            secondarySub: `${((100 - successRate) || 0).toFixed(1)}% decline rate`,
+            badge: "All Operations"
         },
         {
-            title: "Gross Revenue",
-            value: formatCurrency(grossRevenue),
-            icon: <FaCoins className="text-amber-400" size={18} />,
-            iconBg: "bg-amber-500/10 border-amber-500/20",
-            textColor: "text-amber-400",
-            primarySub: `Across all ${successTx.toLocaleString()} successful transactions`,
-            secondarySub: `816 Sales ($223,396.67) + 22 Refunds ($2,899.75)`,
-            badge: `All Successful Txns (${currencySymbol})`
-        },
-        {
-            title: "Net Realized Revenue",
-            value: formatCurrency(netRevenue),
+            title: "Total Successful Revenue",
+            value: formatCurrency(totalRevenue),
             icon: <FaWallet className="text-emerald-400" size={18} />,
             iconBg: "bg-emerald-500/10 border-emerald-500/20",
             textColor: "text-emerald-400",
-            primarySub: `Settled: ${formatCurrency(netRevenue)}`,
-            secondarySub: `Refunds Deducted: -${formatCurrency(refundAmount)} (${refundedTx} refunds)`,
-            badge: `Net Settled (${currencySymbol})`
+            primarySub: `Across all ${successTx.toLocaleString()} successful transactions`,
+            secondarySub: `No deductions applied (${currencySymbol})`,
+            badge: `Full Revenue (${currencySymbol})`
+        },
+        {
+            title: "Refund Transactions",
+            value: refundedTx.toLocaleString(),
+            icon: <FaUndoAlt className="text-amber-400" size={18} />,
+            iconBg: "bg-amber-500/10 border-amber-500/20",
+            textColor: "text-amber-400",
+            primarySub: `Total Refund Value: ${formatCurrency(refundAmount)}`,
+            secondarySub: `${refundRate}% of total transactions`,
+            badge: "22 Operations"
         }
     ];
 
