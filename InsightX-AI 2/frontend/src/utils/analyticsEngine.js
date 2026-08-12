@@ -4,8 +4,8 @@ import {
     formatDateISO,
     sortMonthsChronologically,
     detectDatasetDateFormat
-} from "./dateParser";
-import { formatCurrency, getCurrencySymbol, detectDatasetCurrency } from "./currency";
+} from "./dateParser.js";
+import { formatCurrency, getCurrencySymbol, detectDatasetCurrency } from "./currency.js";
 
 function getColumnValue(row, possibleKeys) {
     if (!row) return null;

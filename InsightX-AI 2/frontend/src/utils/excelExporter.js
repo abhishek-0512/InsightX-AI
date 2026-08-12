@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { getCurrencySymbol } from "./currency";
+import { getCurrencySymbol } from "./currency.js";
 
 const colors = {
     navyDark: "0F172A",
