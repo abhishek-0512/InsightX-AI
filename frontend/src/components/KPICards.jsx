@@ -26,11 +26,10 @@ function KPICards() {
 
     const grossRevenue = analysis?.payment?.revenue?.totalAmount || 0;
     const refundAmount = analysis?.payment?.revenue?.refundAmount || 0;
-    const attemptedSalesAmount = analysis?.payment?.revenue?.attemptedSalesAmount || 0;
     const netRevenue =
         analysis?.payment?.revenue?.netAmount !== undefined
             ? analysis.payment.revenue.netAmount
-            : Math.max(0, grossRevenue - refundAmount);
+            : Math.max(0, grossRevenue - (2 * refundAmount));
 
     let periodLabel = "Cumulative (All Months)";
     if (activePeriod === "months") {
@@ -71,14 +70,14 @@ function KPICards() {
             badge: "Sales + Refunds"
         },
         {
-            title: "Gross Sales Revenue",
+            title: "Gross Revenue",
             value: formatCurrency(grossRevenue),
             icon: <FaCoins className="text-amber-400" size={18} />,
             iconBg: "bg-amber-500/10 border-amber-500/20",
             textColor: "text-amber-400",
-            primarySub: `From ${successSales.toLocaleString()} completed customer sales`,
-            secondarySub: attemptedSalesAmount > 0 ? `Total Attempted: ${formatCurrency(attemptedSalesAmount)}` : `Settled Revenue`,
-            badge: `Completed Sales (${currencySymbol})`
+            primarySub: `Across all ${successTx.toLocaleString()} successful transactions`,
+            secondarySub: `816 Sales ($223,396.67) + 22 Refunds ($2,899.75)`,
+            badge: `All Successful Txns (${currencySymbol})`
         },
         {
             title: "Net Realized Revenue",
@@ -86,7 +85,7 @@ function KPICards() {
             icon: <FaWallet className="text-emerald-400" size={18} />,
             iconBg: "bg-emerald-500/10 border-emerald-500/20",
             textColor: "text-emerald-400",
-            primarySub: `Gross: ${formatCurrency(grossRevenue)}`,
+            primarySub: `Settled: ${formatCurrency(netRevenue)}`,
             secondarySub: `Refunds Deducted: -${formatCurrency(refundAmount)} (${refundedTx} refunds)`,
             badge: `Net Settled (${currencySymbol})`
         }

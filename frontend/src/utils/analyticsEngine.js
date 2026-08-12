@@ -90,6 +90,7 @@ const dateKeys = [
 
 /**
  * Pure client-side high-accuracy analytics engine
+ * Calculates Gross Revenue across ALL Successful Transactions (Sales + Refunds)
  */
 export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCode = "INR") {
     const totalTransactions = rows.length;
@@ -107,7 +108,8 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
     let refundedTransactions = 0;   // Successful refunds
     let failedRefundTransactions = 0; // Failed refund attempts
 
-    let totalAmount = 0; // Gross Revenue from completed successful sales
+    let grossAmount = 0; // Gross Revenue across all successful transactions (Sales + Refunds)
+    let salesAmount = 0; // Sales portion of gross revenue
     let refundAmount = 0; // Successful refunds deductions
     let failedSalesAmount = 0; // Volume from failed sales attempts
     let attemptedSalesAmount = 0; // Total sales volume attempted (success + fail)
@@ -164,10 +166,11 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
 
         if (isRefund) {
             if (isSuccess) {
-                // Successful refund is counted in successful transactions and refund count
+                // Successful refund is counted in successful transactions and gross processed revenue
                 refundedTransactions++;
                 successfulTransactions++;
                 refundAmount += amount;
+                grossAmount += amount;
             } else {
                 // Failed refunds are counted as failed transactions
                 failedRefundTransactions++;
@@ -179,7 +182,8 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
             if (isSuccess) {
                 successfulSales++;
                 successfulTransactions++;
-                totalAmount += amount;
+                salesAmount += amount;
+                grossAmount += amount;
             } else if (isFailure) {
                 failedTransactions++;
                 failedSalesAmount += amount;
@@ -210,7 +214,8 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
                         failedTransactions: 0,
                         refundedTransactions: 0,
                         failedRefundTransactions: 0,
-                        amount: 0, // gross completed
+                        amount: 0, // gross across successful txns
+                        salesAmount: 0,
                         refundAmount: 0,
                         paymentModes: {}
                     };
@@ -224,6 +229,7 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
                         monthlyMap[mKey].refundedTransactions++;
                         monthlyMap[mKey].successfulTransactions++;
                         monthlyMap[mKey].refundAmount += amount;
+                        monthlyMap[mKey].amount += amount;
                     } else {
                         monthlyMap[mKey].failedRefundTransactions++;
                         monthlyMap[mKey].failedTransactions++;
@@ -232,6 +238,7 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
                     if (isSuccess) {
                         monthlyMap[mKey].successfulSales++;
                         monthlyMap[mKey].successfulTransactions++;
+                        monthlyMap[mKey].salesAmount += amount;
                         monthlyMap[mKey].amount += amount;
                     } else {
                         monthlyMap[mKey].failedTransactions++;
@@ -249,6 +256,7 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
                     if (isSuccess) {
                         dailyMap[dKey].refunds++;
                         dailyMap[dKey].success++;
+                        dailyMap[dKey].amount += amount;
                     } else {
                         dailyMap[dKey].fail++;
                     }
@@ -266,17 +274,19 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
 
     const successRate = totalTransactions === 0 ? 0 : Number(((successfulTransactions / totalTransactions) * 100).toFixed(2));
     const refundRate = totalTransactions === 0 ? 0 : Number(((refundedTransactions / totalTransactions) * 100).toFixed(2));
-    const grossAmount = Number(totalAmount.toFixed(2));
+    const finalGrossAmount = Number(grossAmount.toFixed(2));
+    const finalSalesAmount = Number(salesAmount.toFixed(2));
     const finalRefundAmount = Number(refundAmount.toFixed(2));
-    const netAmount = Number(Math.max(0, grossAmount - finalRefundAmount).toFixed(2));
+    const netAmount = Number(Math.max(0, finalSalesAmount - finalRefundAmount).toFixed(2));
 
     // Prepare chronologically sorted monthlyList
     const sortedMonthKeys = sortMonthsChronologically(Object.keys(monthlyMap));
     const monthlyList = sortedMonthKeys.map((key) => {
         const item = monthlyMap[key];
         const mGross = Number(item.amount.toFixed(2));
+        const mSales = Number(item.salesAmount.toFixed(2));
         const mRefund = Number(item.refundAmount.toFixed(2));
-        const mNet = Number(Math.max(0, mGross - mRefund).toFixed(2));
+        const mNet = Number(Math.max(0, mSales - mRefund).toFixed(2));
         const mSuccessRate = item.transactions > 0
             ? Number(((item.successfulTransactions / item.transactions) * 100).toFixed(2))
             : 0;
@@ -296,6 +306,7 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
             refundedTransactions: item.refundedTransactions,
             amount: mGross,
             grossAmount: mGross,
+            salesAmount: mSales,
             refundAmount: mRefund,
             netAmount: mNet,
             successRate: mSuccessRate,
@@ -313,10 +324,10 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
     // Generate AI Summary Insights with dynamic currency
     const aiSummary = [];
     aiSummary.push(`Total of ${totalTransactions.toLocaleString()} transaction record(s) analyzed.`);
-    aiSummary.push(`Net Realized Revenue: ${formatCurrency(netAmount, currencyCode)} (Gross Completed Sales: ${formatCurrency(grossAmount, currencyCode)}) with an overall ${successRate}% success rate across all ${successfulTransactions.toLocaleString()} successful operations (${successfulSales.toLocaleString()} sales, ${refundedTransactions.toLocaleString()} refunds).`);
+    aiSummary.push(`Gross Revenue (all ${successfulTransactions.toLocaleString()} successful transactions): ${formatCurrency(finalGrossAmount, currencyCode)} with Net Realized Revenue of ${formatCurrency(netAmount, currencyCode)} after ${formatCurrency(finalRefundAmount, currencyCode)} in refund deductions.`);
 
     if (refundedTransactions > 0) {
-        aiSummary.push(`${refundedTransactions.toLocaleString()} successful refund(s) totaling ${formatCurrency(finalRefundAmount, currencyCode)} (${refundRate}% refund rate). Failed refund attempts are safely separated.`);
+        aiSummary.push(`${refundedTransactions.toLocaleString()} successful refund(s) totaling ${formatCurrency(finalRefundAmount, currencyCode)} (${refundRate}% refund rate).`);
     } else {
         aiSummary.push(`No successful refund transactions detected in this selection.`);
     }
@@ -348,14 +359,15 @@ export function computeAnalytics(rows = [], dayFirstOverride = null, currencyCod
                 failedRefundTransactions
             },
             revenue: {
-                totalAmount: grossAmount,
+                totalAmount: finalGrossAmount,
+                salesAmount: finalSalesAmount,
                 refundAmount: finalRefundAmount,
                 netAmount: netAmount,
                 attemptedSalesAmount: Number(attemptedSalesAmount.toFixed(2)),
                 failedSalesAmount: Number(failedSalesAmount.toFixed(2)),
                 totalDatasetVolume: Number(totalDatasetVolume.toFixed(2))
             },
-            averageAmount: successfulSales > 0 ? Number((grossAmount / successfulSales).toFixed(2)) : 0,
+            averageAmount: successfulTransactions > 0 ? Number((finalGrossAmount / successfulTransactions).toFixed(2)) : 0,
             successRate,
             refundRate,
             paymentModes

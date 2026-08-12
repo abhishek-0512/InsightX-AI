@@ -107,6 +107,7 @@ exports.analyze = (rows = []) => {
                 refundedTransactions++;
                 successfulTransactions++;
                 refundAmount += amount;
+                totalAmount += amount;
             } else {
                 // Failed refunds are counted as failed transactions
                 failedRefundTransactions++;
@@ -116,6 +117,7 @@ exports.analyze = (rows = []) => {
             // Normal Sale Transaction
             if (isSuccess) {
                 successfulTransactions++;
+                salesAmount = (salesAmount || 0) + amount;
                 totalAmount += amount;
             } else if (isFailure) {
                 failedTransactions++;
@@ -139,6 +141,11 @@ exports.analyze = (rows = []) => {
             ? 0
             : Number(((refundedTransactions / totalTransactions) * 100).toFixed(2));
 
+    const grossRev = Number(totalAmount.toFixed(2));
+    const refundRev = Number(refundAmount.toFixed(2));
+    const salesRev = Number((salesAmount || (totalAmount - refundAmount)).toFixed(2));
+    const netRev = Number(Math.max(0, salesRev - refundRev).toFixed(2));
+
     const grossAmount = Number(totalAmount.toFixed(2));
     const finalRefundAmount = Number(refundAmount.toFixed(2));
     const netAmount = Number(Math.max(0, grossAmount - finalRefundAmount).toFixed(2));
@@ -146,6 +153,7 @@ exports.analyze = (rows = []) => {
     return {
         overview: {
             totalTransactions,
+            successfulSales: successfulTransactions - refundedTransactions,
             successfulTransactions,
             failedTransactions,
             refundedTransactions,
@@ -153,9 +161,10 @@ exports.analyze = (rows = []) => {
         },
         paymentModes,
         revenue: {
-            totalAmount: grossAmount,
-            refundAmount: finalRefundAmount,
-            netAmount
+            totalAmount: grossRev,
+            salesAmount: salesRev,
+            refundAmount: refundRev,
+            netAmount: netRev
         },
         successRate,
         refundRate

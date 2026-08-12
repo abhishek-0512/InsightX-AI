@@ -102,6 +102,7 @@ exports.analyze = (rows = []) => {
                 mStats.refundedTransactions++;
                 mStats.successfulTransactions++;
                 mStats.refundAmount += amount;
+                mStats.amount += amount;
             } else {
                 mStats.failedRefundTransactions++;
                 mStats.failedTransactions++;
@@ -109,6 +110,7 @@ exports.analyze = (rows = []) => {
         } else {
             if (isSuccess) {
                 mStats.successfulTransactions++;
+                mStats.salesAmount = (mStats.salesAmount || 0) + amount;
                 mStats.amount += amount;
             } else {
                 mStats.failedTransactions++;
@@ -122,8 +124,9 @@ exports.analyze = (rows = []) => {
     const monthlyList = sortedMonthKeys.map((key) => {
         const item = monthlyMap[key];
         const gross = Number(item.amount.toFixed(2));
+        const sales = Number((item.salesAmount || (item.amount - item.refundAmount)).toFixed(2));
         const refund = Number(item.refundAmount.toFixed(2));
-        const net = Number(Math.max(0, gross - refund).toFixed(2));
+        const net = Number(Math.max(0, sales - refund).toFixed(2));
         const successRate = item.transactions > 0
             ? Number(((item.successfulTransactions / item.transactions) * 100).toFixed(2))
             : 0;
@@ -141,8 +144,9 @@ exports.analyze = (rows = []) => {
             successfulSales: Math.max(0, item.successfulTransactions - item.refundedTransactions),
             failedTransactions: item.failedTransactions,
             refundedTransactions: item.refundedTransactions,
-            amount: gross, // for backward compatibility
+            amount: gross,
             grossAmount: gross,
+            salesAmount: sales,
             refundAmount: refund,
             netAmount: net,
             successRate,
