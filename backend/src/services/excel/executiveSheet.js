@@ -151,14 +151,6 @@ module.exports = async (workbook, analysis) => {
             styles.headerStyle(growthHeaders.getCell(i));
         }
 
-<<<<<<< HEAD
-        for (let i = 0; i < months.length - 1; i++) {
-            const curM = monthlyStats[months[i]] || {};
-            const nextM = monthlyStats[months[i + 1]] || {};
-            const txnGrowth = curM.transactions ? (((nextM.transactions - curM.transactions) / curM.transactions) * 100).toFixed(1) + "%" : "-";
-            const gmvGrowth = curM.grossAmount ? (((nextM.grossAmount - curM.grossAmount) / curM.grossAmount) * 100).toFixed(1) + "%" : "-";
-            const rateDiff = (nextM.successRate - curM.successRate).toFixed(1) + "%";
-=======
         const monthlyStats = analysis.monthly?.monthly || {};
         for (let i = 0; i < months.length - 1; i++) {
             const curM = monthlyStats[months[i]] || mList.find(m => m.month === months[i]) || {};
@@ -166,7 +158,6 @@ module.exports = async (workbook, analysis) => {
             const txnGrowth = curM.transactions ? (((nextM.transactions - curM.transactions) / curM.transactions) * 100).toFixed(1) + "%" : "-";
             const gmvGrowth = curM.grossAmount ? (((nextM.grossAmount - curM.grossAmount) / curM.grossAmount) * 100).toFixed(1) + "%" : "-";
             const rateDiff = ((nextM.successRate || 0) - (curM.successRate || 0)).toFixed(1) + "%";
->>>>>>> 0cbbd02 (feat: enhance revenue reconciliation, include refunds in successful transactions, and fix analytics calculations)
             sheet.addRow([`${months[i]} - ${months[i + 1]}`, txnGrowth, gmvGrowth, rateDiff]);
         }
     }

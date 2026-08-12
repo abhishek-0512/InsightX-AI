@@ -10,10 +10,7 @@ exports.analyze = (rows = []) => {
 
     let totalAmount = 0; // Gross Revenue
     let refundAmount = 0; // Successful Refunds Amount
-<<<<<<< HEAD
-=======
     let salesAmount = 0;
->>>>>>> 0cbbd02 (feat: enhance revenue reconciliation, include refunds in successful transactions, and fix analytics calculations)
 
     const paymentModes = {};
 
